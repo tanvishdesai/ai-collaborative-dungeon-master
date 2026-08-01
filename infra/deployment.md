@@ -1,25 +1,38 @@
 # Deployment Notes
 
-## Frontend
+## Frontend (Vercel)
 
-Deploy `frontend/` to Vercel.
+Deploy the `frontend/` directory.
 
-Required environment variables:
+Required environment variables on Vercel:
 
-- `NEXT_PUBLIC_API_URL`
-- `NEXT_PUBLIC_SOCKET_URL`
+- `NEXT_PUBLIC_CONVEX_URL` — production Convex deployment URL
+- `NEXT_PUBLIC_CONVEX_SITE_URL` — Convex HTTP actions URL (`.convex.site`)
 
-## Backend
+## Backend (Convex)
 
-Deploy `backend/` to Render.
+From `frontend/`:
 
-Required environment variables:
+```bash
+npx convex deploy
+```
 
-- `DATABASE_URL`
-- `JWT_SECRET_KEY`
-- `GEMINI_API_KEY`
-- `ALLOWED_ORIGINS`
+Set production env vars:
 
-## Database
+```bash
+npx convex env set GEMINI_API_KEY "<key>" --prod
+npx convex env set SITE_URL "https://your-vercel-domain.vercel.app" --prod
+```
 
-Use Supabase PostgreSQL. Run Alembic migrations from the backend deployment pipeline before serving traffic.
+Convex Auth JWT keys (`JWT_PRIVATE_KEY`, `JWKS`) are managed per deployment via `npx @convex-dev/auth` (run against prod if needed).
+
+## Local development
+
+```bash
+cd frontend
+npm install
+npx convex dev --once   # or keep watching
+npm run dev:all         # convex + next together
+```
+
+Dashboard: https://dashboard.convex.dev/t/tanvishdesai-05/ai-collaborative-dungeon-master

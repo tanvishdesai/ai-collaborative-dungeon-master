@@ -1,58 +1,44 @@
 # AI Collaborative Dungeon Master
 
-A production-ready, real-time multiplayer storytelling game powered by an AI Dungeon Master (Google Gemini).
+A real-time multiplayer fantasy storytelling game guided by an AI Dungeon Master (Google Gemini), built on **Next.js + Convex**.
 
 ## Features
 
-- **Real-Time Multiplayer:** Built on Socket.IO for seamless synchronized gameplay, waiting rooms, and turn-based interactions.
-- **AI Dungeon Master:** Employs the Google Gemini API to narrate adventures, generate dynamic dialogue, and respond logically to player actions.
-- **Procedural World Generation:** Unique worlds featuring biomes, locations, and NPCs generated dynamically per session.
-- **Modern Tech Stack:** 
-  - **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS, shadcn-ui, TanStack Query.
-  - **Backend:** FastAPI, Python, SQLAlchemy, Alembic, Socket.IO.
-- **Security & Persistence:** JWT Authentication and robust PostgreSQL/SQLite database persistence.
+- Real-time multiplayer lobbies via Convex reactive queries (no Socket.IO)
+- AI Dungeon Master narration with Gemini (`gemini-2.0-flash`)
+- Seeded Forgotten Vale world (6 locations, NPCs, buildings, objects)
+- Character classes, combat, travel, inventory, and NPC conversation
+- Convex Auth (email + password)
 
-## Local Development Setup
+## Stack
 
-### 1. Repository Setup
+- **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS
+- **Backend:** Convex (schema, mutations, actions, scheduling)
+- **Auth:** `@convex-dev/auth` Password provider
+- **AI:** `@google/genai` inside Convex Node actions
+
+## Local development
 
 ```bash
-# Install node dependencies
 npm install
+cd frontend
+npx convex dev --once   # links/pushes to your Convex deployment
+npm run dev:all         # Convex watcher + Next.js on :3000
 ```
 
-### 2. Environment Variables
+Environment (created by Convex CLI in `frontend/.env.local`):
 
-Create `.env` files in both the frontend and backend directories:
-- Copy `frontend/.env.example` to `frontend/.env.local`
-- Copy `backend/.env.example` to `backend/.env`
-- Make sure to add your Google Gemini API key inside the backend `.env`.
+- `NEXT_PUBLIC_CONVEX_URL`
+- `NEXT_PUBLIC_CONVEX_SITE_URL`
+- `CONVEX_DEPLOYMENT`
 
-### 3. Start Development Servers
+Set the Gemini key on the Convex deployment (not only in `.env.local`):
 
-Run the full stack concurrently from the root:
-```bash
-npm run dev
-```
-
-Alternatively, you can run them separately:
-**Backend:**
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-uvicorn app.main:socket_app --reload --port 8000
-```
-**Frontend:**
 ```bash
 cd frontend
-npm run dev
+npx convex env set GEMINI_API_KEY "<your-key>"
 ```
 
-## E2E Testing
-Run the comprehensive Playwright end-to-end tests:
-```bash
-npm run dev # Start servers first
-node playwright_e2e.js
-```
+## Deploy
+
+See [`infra/deployment.md`](infra/deployment.md). Architecture overview: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).

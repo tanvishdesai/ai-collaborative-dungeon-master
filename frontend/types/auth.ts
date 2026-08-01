@@ -3,14 +3,6 @@ export interface AuthUser {
   email: string;
   username: string;
   is_active: boolean;
-  is_verified: boolean;
-  created_at: string;
-}
-
-export interface AuthResponse {
-  access_token: string;
-  token_type: "bearer";
-  user: AuthUser;
 }
 
 export interface RegisterPayload {

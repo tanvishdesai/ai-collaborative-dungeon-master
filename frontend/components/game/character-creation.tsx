@@ -19,103 +19,33 @@ import {
   FlaskConical,
   Loader2,
   Dices,
-  Info,
 } from "lucide-react";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import {
+  CLASS_STARTING_STATS,
+  CHARACTER_CLASSES,
+  type CharacterClass,
+} from "@/convex/lib/classPresets";
 import { Button } from "@/components/ui/button";
-import { createCharacter } from "@/services/characters";
+import { authErrorMessage } from "@/hooks/use-auth";
 
 interface CharacterCreationProps {
   roomCode: string;
-  accessToken: string;
-  onSuccess: () => void;
+  onCreated: () => void;
 }
 
-export interface ClassPreset {
-  name: string;
-  description: string;
-  stats: {
-    health: number;
-    mana: number;
-    strength: number;
-    intelligence: number;
-    agility: number;
-    defense: number;
-    luck: number;
-    gold: number;
-  };
-}
-
-export const CLASS_PRESETS: Record<string, ClassPreset> = {
-  Warrior: {
-    name: "Warrior",
-    description: "A mighty champion of strength and defense. Thrives in the heat of battle with high health and devastating melee power.",
-    stats: {
-      health: 140,
-      mana: 20,
-      strength: 16,
-      intelligence: 6,
-      agility: 8,
-      defense: 12,
-      luck: 8,
-      gold: 100,
-    },
-  },
-  Mage: {
-    name: "Mage",
-    description: "A master of the arcane arts. Commands overwhelming mana and intelligence to launch devastating spells, though physically vulnerable.",
-    stats: {
-      health: 80,
-      mana: 150,
-      strength: 6,
-      intelligence: 18,
-      agility: 9,
-      defense: 6,
-      luck: 10,
-      gold: 120,
-    },
-  },
-  Archer: {
-    name: "Archer",
-    description: "A swift and precise marksman. High agility and critical strike potential allow them to take down foes from a safe distance.",
-    stats: {
-      health: 100,
-      mana: 40,
-      strength: 10,
-      intelligence: 10,
-      agility: 16,
-      defense: 8,
-      luck: 14,
-      gold: 90,
-    },
-  },
-  Rogue: {
-    name: "Rogue",
-    description: "A master of stealth and fortune. Incredible speed and luck let them strike swiftly, evade attacks, and find hidden riches.",
-    stats: {
-      health: 90,
-      mana: 30,
-      strength: 9,
-      intelligence: 8,
-      agility: 18,
-      defense: 7,
-      luck: 16,
-      gold: 150,
-    },
-  },
-  Healer: {
-    name: "Healer",
-    description: "A devoted protector and support. Wields powerful restorative magic with high mana and healing bonuses to sustain the party.",
-    stats: {
-      health: 110,
-      mana: 100,
-      strength: 8,
-      intelligence: 12,
-      agility: 10,
-      defense: 9,
-      luck: 14,
-      gold: 110,
-    },
-  },
+const CLASS_DESCRIPTIONS: Record<CharacterClass, string> = {
+  Warrior:
+    "A mighty champion of strength and defense. Thrives in the heat of battle with high health and devastating melee power.",
+  Mage:
+    "A master of the arcane arts. Commands overwhelming mana and intelligence to launch devastating spells, though physically vulnerable.",
+  Archer:
+    "A swift and precise marksman. High agility and critical strike potential allow them to take down foes from a safe distance.",
+  Rogue:
+    "A master of stealth and fortune. Incredible speed and luck let them strike swiftly, evade attacks, and find hidden riches.",
+  Healer:
+    "A devoted protector and support. Wields powerful restorative magic with high mana and healing bonuses to sustain the party.",
 };
 
 export const AVATARS = [
@@ -136,14 +66,16 @@ export const AVATARS = [
   { id: "avatar_15", name: "Alchemist", gradient: "from-blue-500 to-cyan-700", Icon: FlaskConical },
 ];
 
-export default function CharacterCreation({ roomCode, accessToken, onSuccess }: CharacterCreationProps) {
+export default function CharacterCreation({ roomCode, onCreated }: CharacterCreationProps) {
+  const createCharacter = useMutation(api.characters.create);
   const [characterName, setCharacterName] = useState("");
-  const [selectedClass, setSelectedClass] = useState<string>("Warrior");
-  const [selectedAvatar, setSelectedAvatar] = useState<string>("avatar_1");
+  const [selectedClass, setSelectedClass] = useState<CharacterClass>("Warrior");
+  const [selectedAvatar, setSelectedAvatar] = useState("avatar_1");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const activePreset = CLASS_PRESETS[selectedClass];
+  const activeStats = CLASS_STARTING_STATS[selectedClass];
+  const activeDescription = CLASS_DESCRIPTIONS[selectedClass];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,35 +83,20 @@ export default function CharacterCreation({ roomCode, accessToken, onSuccess }: 
       setError("Character name is required.");
       return;
     }
-    if (!selectedClass) {
-      setError("Please select a class.");
-      return;
-    }
-    if (!selectedAvatar) {
-      setError("Please select an avatar.");
-      return;
-    }
 
     setIsSubmitting(true);
     setError(null);
 
     try {
-      await createCharacter(
+      await createCharacter({
         roomCode,
-        {
-          character_name: characterName.trim(),
-          class: selectedClass,
-          avatar: selectedAvatar,
-        },
-        accessToken
-      );
-      onSuccess();
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to create character. Please try a different name.");
-      }
+        characterName: characterName.trim(),
+        characterClass: selectedClass,
+        avatar: selectedAvatar,
+      });
+      onCreated();
+    } catch (err) {
+      setError(authErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -209,7 +126,6 @@ export default function CharacterCreation({ roomCode, accessToken, onSuccess }: 
           </div>
         )}
 
-        {/* Character Name */}
         <div className="flex flex-col gap-2">
           <label htmlFor="characterName" className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
             Character Name
@@ -241,21 +157,18 @@ export default function CharacterCreation({ roomCode, accessToken, onSuccess }: 
 
         <div className="grid gap-6 md:grid-cols-[1fr_0.8fr]">
           <div className="flex flex-col gap-6">
-            {/* Class Selection */}
             <div className="flex flex-col gap-2">
               <span className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
                 Choose Class
               </span>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {Object.keys(CLASS_PRESETS).map((key) => {
-                  const preset = CLASS_PRESETS[key];
-                  const isSelected = selectedClass === key;
-
+                {CHARACTER_CLASSES.map((className) => {
+                  const isSelected = selectedClass === className;
                   return (
                     <button
-                      key={key}
+                      key={className}
                       type="button"
-                      onClick={() => setSelectedClass(key)}
+                      onClick={() => setSelectedClass(className)}
                       disabled={isSubmitting}
                       className={`flex flex-col items-center justify-center gap-2 rounded-md border p-4 transition-all ${
                         isSelected
@@ -263,14 +176,13 @@ export default function CharacterCreation({ roomCode, accessToken, onSuccess }: 
                           : "border-border bg-background/40 hover:border-border/80"
                       }`}
                     >
-                      <span className="font-semibold text-foreground text-sm sm:text-base">{preset.name}</span>
+                      <span className="font-semibold text-foreground text-sm sm:text-base">{className}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Avatar Selection */}
             <div className="flex flex-col gap-2">
               <span className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
                 Choose Avatar
@@ -299,15 +211,10 @@ export default function CharacterCreation({ roomCode, accessToken, onSuccess }: 
             </div>
           </div>
 
-          {/* Live Stat Preview */}
           <div className="flex flex-col gap-4 rounded-lg border border-border bg-background/40 p-4">
             <div>
-              <div className="flex items-center gap-1.5">
-                <h3 className="text-base font-semibold text-primary">{activePreset.name} Preview</h3>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                {activePreset.description}
-              </p>
+              <h3 className="text-base font-semibold text-primary">{selectedClass} Preview</h3>
+              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{activeDescription}</p>
             </div>
 
             <div className="border-t border-border pt-3">
@@ -315,69 +222,64 @@ export default function CharacterCreation({ roomCode, accessToken, onSuccess }: 
                 Starting Stats
               </span>
               <div className="mt-3 space-y-2 text-xs sm:text-sm">
-                {/* Health */}
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Health</span>
-                    <span className="font-semibold text-rose-400">{activePreset.stats.health}</span>
+                    <span className="font-semibold text-rose-400">{activeStats.health}</span>
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full bg-rose-500 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (activePreset.stats.health / 150) * 100)}%` }}
+                      style={{ width: `${Math.min(100, (activeStats.health / 150) * 100)}%` }}
                     />
                   </div>
                 </div>
 
-                {/* Mana */}
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Mana</span>
-                    <span className="font-semibold text-blue-400">{activePreset.stats.mana}</span>
+                    <span className="font-semibold text-blue-400">{activeStats.mana}</span>
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (activePreset.stats.mana / 150) * 100)}%` }}
+                      style={{ width: `${Math.min(100, (activeStats.mana / 150) * 100)}%` }}
                     />
                   </div>
                 </div>
 
-                {/* Strength, Intelligence, Agility, Defense, Luck */}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border/40 pt-3">
                   <div className="flex justify-between border-b border-border/20 pb-1">
                     <span className="text-muted-foreground text-xs">Strength</span>
-                    <span className="font-semibold text-foreground">{activePreset.stats.strength}</span>
+                    <span className="font-semibold text-foreground">{activeStats.strength}</span>
                   </div>
                   <div className="flex justify-between border-b border-border/20 pb-1">
                     <span className="text-muted-foreground text-xs">Agility</span>
-                    <span className="font-semibold text-foreground">{activePreset.stats.agility}</span>
+                    <span className="font-semibold text-foreground">{activeStats.agility}</span>
                   </div>
                   <div className="flex justify-between border-b border-border/20 pb-1">
                     <span className="text-muted-foreground text-xs">Intelligence</span>
-                    <span className="font-semibold text-foreground">{activePreset.stats.intelligence}</span>
+                    <span className="font-semibold text-foreground">{activeStats.intelligence}</span>
                   </div>
                   <div className="flex justify-between border-b border-border/20 pb-1">
                     <span className="text-muted-foreground text-xs">Defense</span>
-                    <span className="font-semibold text-foreground">{activePreset.stats.defense}</span>
+                    <span className="font-semibold text-foreground">{activeStats.defense}</span>
                   </div>
                   <div className="flex justify-between col-span-2">
                     <span className="text-muted-foreground text-xs">Luck</span>
-                    <span className="font-semibold text-foreground">{activePreset.stats.luck}</span>
+                    <span className="font-semibold text-foreground">{activeStats.luck}</span>
                   </div>
                 </div>
 
-                {/* Gold */}
                 <div className="flex justify-between border-t border-border/40 pt-3 text-xs sm:text-sm font-semibold">
                   <span className="text-amber-500">Starting Gold</span>
-                  <span className="text-amber-400">{activePreset.stats.gold}g</span>
+                  <span className="text-amber-400">{activeStats.gold}g</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Submit Button */}
         <Button
           type="submit"
           className="w-full bg-primary text-primary-foreground font-bold hover:bg-primary/95 text-base py-5 tracking-wide shadow-lg"

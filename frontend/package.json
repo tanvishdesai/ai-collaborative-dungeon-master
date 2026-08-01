@@ -4,20 +4,22 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev --port 3000",
+    "dev:all": "convex dev --start \"next dev --port 3000\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.83.0",
+    "@convex-dev/auth": "^0.0.94",
+    "@google/genai": "^2.15.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "convex": "^1.43.0",
     "lucide-react": "^0.468.0",
     "next": "^15.4.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "socket.io-client": "^4.8.1",
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {

@@ -1,13 +1,13 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AlertCircle, DoorOpen, Loader2, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/use-auth";
-import { ApiError } from "@/services/api";
-import { joinRoom } from "@/services/rooms";
+import { authErrorMessage, useAuth } from "@/hooks/use-auth";
 
 const ROOM_CODE_PATTERN = /^[A-Za-z0-9]{6}$/;
 
@@ -21,20 +21,19 @@ export default function JoinRoomPage() {
 
 function JoinRoomForm() {
   const router = useRouter();
-  const { accessToken, logout, user } = useAuth();
+  const { logout, user } = useAuth();
+  const joinRoom = useMutation(api.rooms.join);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
 
-  useState(() => {
-    if (typeof window !== "undefined") {
-      const storedError = window.sessionStorage.getItem("room-error");
-      if (storedError) {
-        setError(storedError);
-        window.sessionStorage.removeItem("room-error");
-      }
+  useEffect(() => {
+    const storedError = window.sessionStorage.getItem("room-error");
+    if (storedError) {
+      setError(storedError);
+      window.sessionStorage.removeItem("room-error");
     }
-  });
+  }, []);
 
   const normalizedCode = useMemo(() => code.trim().toUpperCase(), [code]);
 
@@ -47,18 +46,13 @@ function JoinRoomForm() {
       return;
     }
 
-    if (!accessToken) {
-      setError("Please sign in before joining a room.");
-      return;
-    }
-
     setIsJoining(true);
     try {
-      const room = await joinRoom(normalizedCode, accessToken);
-      window.sessionStorage.setItem("room-join-success", room.code);
-      router.push(`/rooms/${room.code}`);
+      const payload = await joinRoom({ code: normalizedCode });
+      window.sessionStorage.setItem("room-join-success", payload.room.code);
+      router.push(`/rooms/${payload.room.code}`);
     } catch (joinError) {
-      setError(joinError instanceof ApiError ? joinError.message : "Could not join the room. Please try again.");
+      setError(authErrorMessage(joinError));
     } finally {
       setIsJoining(false);
     }

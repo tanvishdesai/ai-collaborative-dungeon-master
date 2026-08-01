@@ -1,15 +1,23 @@
 "use client";
 
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+} from "react";
 import { useRouter } from "next/navigation";
-import { loginUser, logoutUser, refreshSession, registerUser } from "@/services/auth";
+import { useConvexAuth } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import type { AuthUser, LoginPayload, RegisterPayload } from "@/types/auth";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
 interface AuthContextValue {
   user: AuthUser | null;
-  accessToken: string | null;
   status: AuthStatus;
   login: (payload: LoginPayload) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
@@ -18,71 +26,70 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+export function authErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    const data = (error as { data?: string }).data;
+    if (typeof data === "string") return data;
+    return error.message;
+  }
+  return "Something went wrong.";
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [status, setStatus] = useState<AuthStatus>("loading");
+  const { isLoading, isAuthenticated } = useConvexAuth();
+  const { signIn, signOut } = useAuthActions();
+  const me = useQuery(api.users.me);
 
-  useEffect(() => {
-    let isMounted = true;
+  const status: AuthStatus = isLoading
+    ? "loading"
+    : isAuthenticated
+      ? "authenticated"
+      : "unauthenticated";
 
-    refreshSession()
-      .then((session) => {
-        if (!isMounted) {
-          return;
-        }
-        setUser(session.user);
-        setAccessToken(session.access_token);
-        setStatus("authenticated");
-      })
-      .catch(() => {
-        if (!isMounted) {
-          return;
-        }
-        setUser(null);
-        setAccessToken(null);
-        setStatus("unauthenticated");
-      });
-
-    return () => {
-      isMounted = false;
+  const user = useMemo<AuthUser | null>(() => {
+    if (!me) return null;
+    return {
+      id: me.id,
+      email: me.email,
+      username: me.username,
+      is_active: me.isActive,
     };
-  }, []);
+  }, [me]);
 
   const login = useCallback(
     async (payload: LoginPayload) => {
-      const session = await loginUser(payload);
-      setUser(session.user);
-      setAccessToken(session.access_token);
-      setStatus("authenticated");
+      await signIn("password", {
+        email: payload.email,
+        password: payload.password,
+        flow: "signIn",
+      });
       router.push("/");
     },
-    [router]
+    [router, signIn],
   );
 
   const register = useCallback(
     async (payload: RegisterPayload) => {
-      const session = await registerUser(payload);
-      setUser(session.user);
-      setAccessToken(session.access_token);
-      setStatus("authenticated");
+      await signIn("password", {
+        email: payload.email,
+        username: payload.username,
+        password: payload.password,
+        flow: "signUp",
+      });
       router.push("/");
     },
-    [router]
+    [router, signIn],
   );
 
   const logout = useCallback(async () => {
-    await logoutUser(accessToken).catch(() => undefined);
-    setUser(null);
-    setAccessToken(null);
-    setStatus("unauthenticated");
+    await signOut();
     router.push("/auth/login");
-  }, [accessToken, router]);
+  }, [router, signOut]);
 
   const value = useMemo(
-    () => ({ user, accessToken, status, login, register, logout }),
-    [accessToken, login, logout, register, status, user]
+    () => ({ user, status, login, register, logout }),
+    [login, logout, register, status, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

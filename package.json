@@ -1,23 +1,19 @@
 {
   "name": "ai-collaborative-dungeon-master",
   "private": true,
-  "version": "0.1.0",
-  "description": "Production-ready monorepo for a real-time AI collaborative dungeon master game.",
+  "version": "0.2.0",
+  "description": "Real-time AI collaborative dungeon master — Next.js + Convex.",
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\"",
-    "dev:frontend": "npm run dev --workspace frontend",
-    "dev:backend": "npm run dev --workspace backend",
+    "dev": "npm run dev --workspace frontend",
+    "dev:all": "npm run dev:all --workspace frontend",
+    "build": "npm run build --workspace frontend",
     "lint": "npm run lint --workspace frontend",
-    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,css}\"",
     "typecheck": "npm run typecheck --workspace frontend"
   },
   "workspaces": [
-    "frontend",
-    "backend"
+    "frontend"
   ],
   "devDependencies": {
-    "concurrently": "^9.2.1",
-    "playwright": "^1.61.1",
     "prettier": "^3.6.2"
   }
 }

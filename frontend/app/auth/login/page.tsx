@@ -2,26 +2,31 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
 import { Loader2, LogIn } from "lucide-react";
 import { AuthCard } from "@/components/auth/auth-card";
 import { AuthField } from "@/components/auth/auth-field";
 import { GuestRoute } from "@/components/auth/guest-route";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/use-auth";
+import { authErrorMessage, useAuth } from "@/hooks/use-auth";
 
 export default function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
 
-  const mutation = useMutation({
-    mutationFn: () => login({ email, password })
-  });
-
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    mutation.mutate();
+    setError(null);
+    setIsPending(true);
+    try {
+      await login({ email, password });
+    } catch (err) {
+      setError(authErrorMessage(err));
+    } finally {
+      setIsPending(false);
+    }
   }
 
   return (
@@ -46,13 +51,13 @@ export default function LoginPage() {
             onChange={(event) => setPassword(event.target.value)}
             required
           />
-          {mutation.error ? (
+          {error ? (
             <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-              {mutation.error.message}
+              {error}
             </p>
           ) : null}
-          <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+          <Button type="submit" disabled={isPending}>
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
             Log in
           </Button>
         </form>

@@ -4,35 +4,32 @@ import Link from "next/link";
 import { AlertCircle, CheckCircle2, Loader2, LogIn, LogOut, Plus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/use-auth";
-import { ApiError } from "@/services/api";
-import { createRoom } from "@/services/rooms";
+import { authErrorMessage, useAuth } from "@/hooks/use-auth";
 
 export function Dashboard() {
   const router = useRouter();
-  const { user, accessToken, logout } = useAuth();
+  const { user, logout } = useAuth();
+  const createRoom = useMutation(api.rooms.create);
   const [isCreating, setIsCreating] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   async function handleCreateRoom() {
-    if (!accessToken) {
-      setNotice({ type: "error", message: "Please sign in before creating a room." });
-      return;
-    }
-
     setIsCreating(true);
     setNotice(null);
 
     try {
-      const room = await createRoom(accessToken);
-      setNotice({ type: "success", message: `Room ${room.code} created.` });
-      window.sessionStorage.setItem("room-create-success", room.code);
-      router.push(`/rooms/${room.code}`);
+      const payload = await createRoom();
+      const code = payload.room.code;
+      setNotice({ type: "success", message: `Room ${code} created.` });
+      window.sessionStorage.setItem("room-create-success", code);
+      router.push(`/rooms/${code}`);
     } catch (error) {
       setNotice({
         type: "error",
-        message: error instanceof ApiError ? error.message : "Could not create the room. Please try again."
+        message: authErrorMessage(error),
       });
     } finally {
       setIsCreating(false);
@@ -74,7 +71,7 @@ export function Dashboard() {
               </div>
               <h2 className="text-2xl font-semibold tracking-normal text-foreground">Create a waiting room</h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Start a real room backed by PostgreSQL, then invite players with the generated code.
+                Start a room and invite players with the code.
               </p>
             </div>
             <Button onClick={handleCreateRoom} disabled={isCreating} className="w-full md:w-auto">

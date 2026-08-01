@@ -2,27 +2,32 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
 import { Loader2, UserPlus } from "lucide-react";
 import { AuthCard } from "@/components/auth/auth-card";
 import { AuthField } from "@/components/auth/auth-field";
 import { GuestRoute } from "@/components/auth/guest-route";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/use-auth";
+import { authErrorMessage, useAuth } from "@/hooks/use-auth";
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
 
-  const mutation = useMutation({
-    mutationFn: () => register({ email, username, password })
-  });
-
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    mutation.mutate();
+    setError(null);
+    setIsPending(true);
+    try {
+      await register({ email, username, password });
+    } catch (err) {
+      setError(authErrorMessage(err));
+    } finally {
+      setIsPending(false);
+    }
   }
 
   return (
@@ -60,13 +65,13 @@ export default function RegisterPage() {
             minLength={8}
             required
           />
-          {mutation.error ? (
+          {error ? (
             <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-              {mutation.error.message}
+              {error}
             </p>
           ) : null}
-          <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+          <Button type="submit" disabled={isPending}>
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
             Create account
           </Button>
         </form>
