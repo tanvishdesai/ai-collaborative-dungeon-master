@@ -1,22 +1,18 @@
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
-import { internal } from "./_generated/api";
 
 const USERNAME_RE = /^[A-Za-z0-9_]+$/;
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Password({
-      // Password.profile typings omit Promise; runtime awaits the result.
-      profile: (async (
-        params: Record<string, unknown>,
-        ctx: { runQuery: (ref: unknown, args: unknown) => Promise<unknown> },
-      ) => {
+      // Must be synchronous — Password.js does not await profile().
+      profile(params) {
         const email = String(params.email ?? "")
           .trim()
           .toLowerCase();
-        if (!email) {
+        if (!email || !email.includes("@")) {
           throw new ConvexError("Email is required.");
         }
 
@@ -35,15 +31,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           );
         }
 
-        if (await ctx.runQuery(internal.users.usernameTaken, { username })) {
-          throw new ConvexError("This username is already taken.");
-        }
-        if (await ctx.runQuery(internal.users.emailTaken, { email })) {
-          throw new ConvexError("An account with this email already exists.");
-        }
-
         return { email, username, isActive: true };
-      }) as never,
+      },
       validatePasswordRequirements: (password: string) => {
         if (password.length < 8 || password.length > 128) {
           throw new ConvexError(
@@ -58,4 +47,46 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       },
     }),
   ],
+  callbacks: {
+    async createOrUpdateUser(ctx, args) {
+      if (args.existingUserId) {
+        return args.existingUserId;
+      }
+
+      const email =
+        typeof args.profile.email === "string"
+          ? args.profile.email.trim().toLowerCase()
+          : undefined;
+      const username =
+        typeof args.profile.username === "string"
+          ? args.profile.username.trim()
+          : undefined;
+
+      if (email) {
+        const existingEmail = await ctx.db
+          .query("users")
+          .withIndex("email", (q) => q.eq("email", email))
+          .unique();
+        if (existingEmail) {
+          throw new ConvexError("An account with this email already exists.");
+        }
+      }
+
+      if (username) {
+        const existingUsername = await ctx.db
+          .query("users")
+          .withIndex("by_username", (q) => q.eq("username", username))
+          .unique();
+        if (existingUsername) {
+          throw new ConvexError("This username is already taken.");
+        }
+      }
+
+      return await ctx.db.insert("users", {
+        email,
+        username,
+        isActive: true,
+      });
+    },
+  },
 });
