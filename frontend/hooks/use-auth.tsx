@@ -26,13 +26,22 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// Convex Auth's Password provider throws plain Errors (not ConvexError) for
+// these cases, so only their raw, internal message text reaches the client.
+const KNOWN_AUTH_ERRORS: [RegExp, string][] = [
+  [/InvalidAccountId|InvalidSecret|Invalid credentials/, "Incorrect email or password."],
+  [/already exists/, "An account with this email already exists. Try logging in instead."],
+  [/TooManyFailedAttempts/, "Too many failed attempts. Please wait a moment and try again."],
+];
+
 export function authErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     const data = (error as { data?: string }).data;
     if (typeof data === "string") return data;
-    return error.message;
+    const match = KNOWN_AUTH_ERRORS.find(([pattern]) => pattern.test(error.message));
+    if (match) return match[1];
   }
-  return "Something went wrong.";
+  return "Something went wrong. Please try again.";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
