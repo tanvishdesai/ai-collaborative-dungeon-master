@@ -1,6 +1,7 @@
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
-import { ConvexError } from "convex/values";
+import { ConvexError, type Value } from "convex/values";
+import type { MutationCtx } from "./_generated/server";
 
 const USERNAME_RE = /^[A-Za-z0-9_]+$/;
 
@@ -16,22 +17,24 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           throw new ConvexError("Email is required.");
         }
 
-        if (params.flow !== "signUp") {
-          return { email };
+        const result: Record<string, Value> & { email: string } = { email };
+
+        if (params.flow === "signUp") {
+          const username = String(params.username ?? "").trim();
+          if (
+            username.length < 3 ||
+            username.length > 32 ||
+            !USERNAME_RE.test(username)
+          ) {
+            throw new ConvexError(
+              "Username must be 3-32 characters and use only letters, numbers, or underscores.",
+            );
+          }
+          result.username = username;
+          result.isActive = true;
         }
 
-        const username = String(params.username ?? "").trim();
-        if (
-          username.length < 3 ||
-          username.length > 32 ||
-          !USERNAME_RE.test(username)
-        ) {
-          throw new ConvexError(
-            "Username must be 3-32 characters and use only letters, numbers, or underscores.",
-          );
-        }
-
-        return { email, username, isActive: true };
+        return result;
       },
       validatePasswordRequirements: (password: string) => {
         if (password.length < 8 || password.length > 128) {
@@ -48,7 +51,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     }),
   ],
   callbacks: {
-    async createOrUpdateUser(ctx, args) {
+    async createOrUpdateUser(genericCtx, args) {
+      const ctx = genericCtx as unknown as MutationCtx;
       if (args.existingUserId) {
         return args.existingUserId;
       }
