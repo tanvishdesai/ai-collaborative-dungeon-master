@@ -43,29 +43,29 @@ function updateQuest(gameState: Doc<"gameStates">): string | null {
     gameState.activeMonsters.length === 0 &&
     !flags.completedQuests.includes(`Cleared ${loc}`)
   ) {
-    return "Explore the Forgotten Vale";
+    return "Explore Vismrit Ghati";
   }
 
   if (
-    flags.openedChests.includes("moldy chest") &&
-    !quest.includes("iron gate") &&
-    !flags.completedQuests.includes("Opened moldy chest")
+    flags.openedChests.includes("old sandook") &&
+    !quest.includes("Naga gate") &&
+    !flags.completedQuests.includes("Opened old sandook")
   ) {
-    return "Unlock the iron gate in Cryptic Dungeon";
+    return "Unlock the Naga gate in Patala Crypt";
   }
 
   if (
-    flags.openedChests.includes("iron gate") &&
-    quest.includes("iron gate")
+    flags.openedChests.includes("Naga gate") &&
+    quest.includes("Naga gate")
   ) {
-    return "Defeat the vampire lord at Shadowfang Castle";
+    return "Defeat the Vetala King at Chhaya Durg";
   }
 
   if (
-    flags.killedMonsters.includes("vampire lord") &&
-    !quest.includes("Holy Grail")
+    flags.killedMonsters.includes("vetala king") &&
+    !quest.includes("Amrit Kalash")
   ) {
-    return "Claim victory — the Holy Grail awaits!";
+    return "Claim victory — the Amrit Kalash awaits!";
   }
 
   if (gameState.activeMonsters.length === 0 && quest.startsWith("Explore ")) {
@@ -231,7 +231,7 @@ export const processAction = mutation({
 
     let resolvedStatus: "success" | "failed" | "rejected" = "rejected";
     let outcome =
-      "I don't understand that action. Try commands like: 'inspect room', 'open moldy chest', 'go to whispering forest', 'attack gnoll hunter', 'talk to elder jonas', or 'use health potion'.";
+      "I don't understand that action. Try commands like: 'inspect room', 'open old sandook', 'go to sarpavan forest', 'attack rakshasa prowler', 'talk to mukhiya raghunath', or 'use sanjeevani potion'.";
     let eventType = "Player Action Attempted";
     let eventDetails: Record<string, unknown> = {};
 
@@ -435,6 +435,34 @@ export const processAction = mutation({
               message: `${character.characterName} leveled up to ${newLevel}!`,
             };
           }
+
+          // Clearing a location of its last monster yields the location's loot
+          // (granted only the first time the location is cleared).
+          if (
+            activeMonsters.length === 0 &&
+            currentLocationId &&
+            !worldFlags.completedQuests.includes(`Looted ${currentLocation}`)
+          ) {
+            const clearedLoc = await ctx.db.get(currentLocationId);
+            if (clearedLoc) {
+              const lootGold = clearedLoc.lootTable.gold ?? 0;
+              const lootItems = clearedLoc.lootTable.items ?? [];
+              if (lootGold > 0) {
+                characterPatch.gold = (characterPatch.gold ?? character.gold) + lootGold;
+              }
+              if (lootItems.length) {
+                inventory.party.push(...lootItems);
+              }
+              worldFlags.completedQuests.push(`Looted ${currentLocation}`);
+              if (lootGold > 0 || lootItems.length) {
+                const lootParts: string[] = [];
+                if (lootItems.length) lootParts.push(lootItems.join(", "));
+                if (lootGold > 0) lootParts.push(`${lootGold} gold`);
+                outcome += ` With ${currentLocation} cleared, the party recovers ${lootParts.join(" and ")}.`;
+                eventDetails.loot = { items: lootItems, gold: lootGold };
+              }
+            }
+          }
         } else {
           outcome = `You attack the ${matchedMonster.name} for ${damage} damage! (HP: ${matchedMonster.health}/${matchedMonster.maxHealth})`;
           resolvedStatus = "success";
@@ -486,11 +514,11 @@ export const processAction = mutation({
             dialogue: matchedNpc.dialogue,
           };
           if (
-            matchedNpc.name.toLowerCase().includes("aerith") &&
-            inventory.party.includes("health potion")
+            matchedNpc.name.toLowerCase().includes("ahalya") &&
+            inventory.party.includes("sanjeevani potion")
           ) {
             outcome +=
-              " (You have a health potion! Type 'give potion to aerith' to heal her.)";
+              " (You have a sanjeevani potion! Type 'give potion to ahalya' to heal her.)";
           }
         }
       } else {
@@ -606,87 +634,88 @@ export const processAction = mutation({
         cleanedAction.replace(/^(use|drink|give|equip)\s+/, "").trim(),
       );
 
-      if (target.includes("potion") || target.includes("health potion")) {
+      if (target.includes("potion")) {
         if (
-          target.includes("aerith") ||
-          target.includes("elf") ||
+          target.includes("ahalya") ||
+          target.includes("gandharva") ||
+          target.includes("vaidya") ||
           target.includes("potion to")
         ) {
-          const aerithNpc = activeNpcs.find((n) =>
-            n.name.toLowerCase().includes("aerith"),
+          const ahalyaNpc = activeNpcs.find((n) =>
+            n.name.toLowerCase().includes("ahalya"),
           );
-          if (!aerithNpc) {
-            outcome = "Aerith is not here.";
+          if (!ahalyaNpc) {
+            outcome = "Vaidya Ahalya is not here.";
             resolvedStatus = "failed";
-          } else if (!inventory.party.includes("health potion")) {
-            outcome = "You do not have a health potion to give.";
+          } else if (!inventory.party.includes("sanjeevani potion")) {
+            outcome = "You do not have a sanjeevani potion to give.";
             resolvedStatus = "failed";
           } else {
-            inventory.party = inventory.party.filter((i) => i !== "health potion");
-            inventory.party.push("amulet of protection");
-            const idx = activeNpcs.indexOf(aerithNpc);
+            inventory.party = inventory.party.filter((i) => i !== "sanjeevani potion");
+            inventory.party.push("raksha kavach");
+            const idx = activeNpcs.indexOf(ahalyaNpc);
             activeNpcs.splice(idx, 1);
-            worldFlags.completedQuests.push("Helped Aerith");
+            worldFlags.completedQuests.push("Helped Ahalya");
             resolvedStatus = "success";
             outcome =
-              "You offer a health potion to Aerith. She drinks it eagerly. " +
-              "She stands up and breathes a sigh of relief: 'Thank you! You saved me. " +
-              "Please take this Amulet of Protection as a token of my thanks.' " +
-              "An amulet of protection (+5 defense when equipped) has been added to your inventory.";
+              "You offer a sanjeevani potion to Vaidya Ahalya. She drinks it gratefully. " +
+              "She rises and folds her hands in relief: 'Dhanyavaad! You have saved my life, veer. " +
+              "Please accept this Raksha Kavach as a token of my thanks.' " +
+              "A raksha kavach (+5 defense when equipped) has been added to your inventory.";
             eventType = "NPC Joined";
-            eventDetails = { npc: "Herbalist Aerith", reward: "amulet of protection" };
+            eventDetails = { npc: "Vaidya Ahalya", reward: "raksha kavach" };
           }
-        } else if (inventory.party.includes("health potion")) {
-          inventory.party = inventory.party.filter((i) => i !== "health potion");
+        } else if (inventory.party.includes("sanjeevani potion")) {
+          inventory.party = inventory.party.filter((i) => i !== "sanjeevani potion");
           const oldHp = character.currentHealth;
           const newHp = Math.min(character.health, character.currentHealth + 50);
           const healed = newHp - oldHp;
           characterPatch.currentHealth = newHp;
           resolvedStatus = "success";
-          outcome = `You drink a health potion, restoring ${healed} HP! (HP: ${newHp}/${character.health})`;
+          outcome = `You drink a sanjeevani potion, restoring ${healed} HP! (HP: ${newHp}/${character.health})`;
           eventType = "Item Collected";
           eventDetails = {
-            item: "health potion",
+            item: "sanjeevani potion",
             recipient: character.characterName,
             healed,
           };
         } else {
-          outcome = "The party does not have any health potions left.";
+          outcome = "The party does not have any sanjeevani potions left.";
           resolvedStatus = "failed";
         }
-      } else if (target.includes("sword") || target.includes("steel sword")) {
-        if (inventory.party.includes("steel sword")) {
-          inventory.party = inventory.party.filter((i) => i !== "steel sword");
+      } else if (target.includes("talwar") || target.includes("sword")) {
+        if (inventory.party.includes("steel talwar")) {
+          inventory.party = inventory.party.filter((i) => i !== "steel talwar");
           characterPatch.strength = character.strength + 4;
           resolvedStatus = "success";
-          outcome = `You equip the steel sword. Your strength increases by 4! (Strength: ${character.strength + 4})`;
+          outcome = `You equip the steel talwar. Your strength increases by 4! (Strength: ${character.strength + 4})`;
         } else {
-          outcome = "You don't have a steel sword.";
+          outcome = "You don't have a steel talwar.";
           resolvedStatus = "failed";
         }
-      } else if (target.includes("shield") || target.includes("iron shield")) {
-        if (inventory.party.includes("iron shield")) {
-          inventory.party = inventory.party.filter((i) => i !== "iron shield");
+      } else if (target.includes("dhaal") || target.includes("shield")) {
+        if (inventory.party.includes("iron dhaal")) {
+          inventory.party = inventory.party.filter((i) => i !== "iron dhaal");
           characterPatch.defense = character.defense + 3;
           resolvedStatus = "success";
-          outcome = `You equip the iron shield. Your defense increases by 3! (Defense: ${character.defense + 3})`;
+          outcome = `You equip the iron dhaal. Your defense increases by 3! (Defense: ${character.defense + 3})`;
         } else {
-          outcome = "You don't have an iron shield.";
+          outcome = "You don't have an iron dhaal.";
           resolvedStatus = "failed";
         }
       } else if (
-        target.includes("amulet") ||
-        target.includes("amulet of protection")
+        target.includes("kavach") ||
+        target.includes("amulet")
       ) {
-        if (inventory.party.includes("amulet of protection")) {
+        if (inventory.party.includes("raksha kavach")) {
           inventory.party = inventory.party.filter(
-            (i) => i !== "amulet of protection",
+            (i) => i !== "raksha kavach",
           );
           characterPatch.defense = character.defense + 5;
           resolvedStatus = "success";
-          outcome = `You wear the amulet of protection. Your defense increases by 5! (Defense: ${character.defense + 5})`;
+          outcome = `You wear the raksha kavach. Your defense increases by 5! (Defense: ${character.defense + 5})`;
         } else {
-          outcome = "You don't have an amulet of protection.";
+          outcome = "You don't have a raksha kavach.";
           resolvedStatus = "failed";
         }
       } else {

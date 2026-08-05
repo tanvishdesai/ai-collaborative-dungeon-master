@@ -226,7 +226,7 @@ function GamePlay() {
                 id="action"
                 value={actionText}
                 onChange={(e) => setActionText(e.target.value)}
-                placeholder="inspect room, attack gnoll hunter, open moldy chest..."
+                placeholder="inspect room, attack rakshasa prowler, open old sandook..."
                 className="min-h-11 flex-1 rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
                 disabled={isSubmitting}
               />

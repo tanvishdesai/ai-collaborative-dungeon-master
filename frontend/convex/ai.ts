@@ -224,7 +224,8 @@ export const talkToNpc = action({
           .join("\n")
       : "No prior conversations recorded.";
 
-    const promptText = `You are the AI roleplaying engine acting as the NPC '${npc.name}' in a fantasy adventure text game.
+    const promptText = `You are the AI roleplaying engine acting as the NPC '${npc.name}' in an Indian mythological adventure set in Vismrit Ghati, the Forgotten Valley below the Himalayas.
+Speak the way this character would in an Indian folk tale — warm, natural, grounded in Indian village and mythic life (temples, ghats, rakshasas, rishis, chai and thandai), with a little natural Hindi flavour where it fits. Do not sound like a Western fantasy novel or a rulebook.
 Your details are:
 - Race: ${npc.race}
 - Profession: ${npc.profession}
@@ -241,7 +242,7 @@ ${memoriesStr}
 ${charName} (${character.characterClass}, Level ${character.level}) says to you:
 "${message}"
 
-Respond to ${charName} in character! Make your dialogue fit your profession, goals, personality, and relationship.
+Respond to ${charName} in character, in the Indian storytelling voice above! Make your dialogue fit your profession, goals, personality, and relationship.
 Provide a change in relationship based on what they said (e.g. positive change if they are respectful or helpful, negative change if they are insulting or threatening).
 Adhere strictly to the AINPCResponse JSON schema. Do not break character.
 `;
