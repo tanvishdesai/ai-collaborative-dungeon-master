@@ -3,11 +3,8 @@
 import { v, ConvexError } from "convex/values";
 import { internalAction, action } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { GoogleGenAI } from "@google/genai";
 import { renderDungeonMasterPrompt } from "./promptBuilder";
-
-const GENERATION_TIMEOUT_MS = 20_000;
-const NARRATION_MODEL = "gemini-2.0-flash";
+import { generateJson } from "./aiProviders";
 
 type AIDungeonMasterResponse = {
   story: string;
@@ -54,23 +51,6 @@ const npcResponseSchema = {
     "rumor",
   ],
 };
-
-function getClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not configured.");
-  }
-  return new GoogleGenAI({ apiKey });
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("Gemini request timed out")), ms),
-    ),
-  ]);
-}
 
 function buildFallbackNarration(context: {
   lastAction: { actionText: string; outcome: string; _creationTime: number };
@@ -149,38 +129,20 @@ export const generateNarration = internalAction({
 
     let storyText = `The narrative unfolds. ${fallbackNarration}`;
 
-    try {
-      const client = getClient();
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const response = await withTimeout(
-            client.models.generateContent({
-              model: NARRATION_MODEL,
-              contents: promptText,
-              config: {
-                responseMimeType: "application/json",
-                responseSchema: narrationSchema,
-                temperature: 0.7,
-              },
-            }),
-            GENERATION_TIMEOUT_MS,
-          );
-
-          if (!response.text) {
-            throw new Error("Empty response text from Gemini API.");
-          }
-
-          const parsed = JSON.parse(response.text) as AIDungeonMasterResponse;
-          if (parsed.story) {
-            storyText = parsed.story;
-            break;
-          }
-        } catch {
-          if (attempt === 2) break;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const parsed = (await generateJson(
+          promptText,
+          0.7,
+          narrationSchema,
+        )) as AIDungeonMasterResponse;
+        if (parsed.story) {
+          storyText = parsed.story;
+          break;
         }
+      } catch {
+        if (attempt === 2) break;
       }
-    } catch {
-      // keep fallback
     }
 
     await ctx.runMutation(internal.aiHelpers.persistNarration, {
@@ -243,7 +205,8 @@ ${charName} (${character.characterClass}, Level ${character.level}) says to you:
 
 Respond to ${charName} in character! Make your dialogue fit your profession, goals, personality, and relationship.
 Provide a change in relationship based on what they said (e.g. positive change if they are respectful or helpful, negative change if they are insulting or threatening).
-Adhere strictly to the AINPCResponse JSON schema. Do not break character.
+Return JSON with keys: dialogue (string), emotion (string), reaction_type ("friendly"|"hostile"|"neutral"), relationship_change (number -15..15), rumor (string).
+Do not break character.
 `;
 
     const fallback: AINPCResponse = {
@@ -256,35 +219,19 @@ Adhere strictly to the AINPCResponse JSON schema. Do not break character.
 
     let aiObj: AINPCResponse = fallback;
 
-    try {
-      const client = getClient();
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const response = await withTimeout(
-            client.models.generateContent({
-              model: NARRATION_MODEL,
-              contents: promptText,
-              config: {
-                responseMimeType: "application/json",
-                responseSchema: npcResponseSchema,
-                temperature: 0.8,
-              },
-            }),
-            GENERATION_TIMEOUT_MS,
-          );
-
-          if (response.text) {
-            aiObj = JSON.parse(response.text) as AINPCResponse;
-            break;
-          }
-        } catch {
-          if (attempt < 2) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-          }
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        aiObj = (await generateJson(
+          promptText,
+          0.8,
+          npcResponseSchema,
+        )) as AINPCResponse;
+        break;
+      } catch {
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
-    } catch {
-      // keep fallback
     }
 
     const newRelationship = Math.max(

@@ -10,6 +10,7 @@
 
 import type * as ai from "../ai.js";
 import type * as aiHelpers from "../aiHelpers.js";
+import type * as aiProviders from "../aiProviders.js";
 import type * as auth from "../auth.js";
 import type * as characters from "../characters.js";
 import type * as gameEngine from "../gameEngine.js";
@@ -35,6 +36,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   aiHelpers: typeof aiHelpers;
+  aiProviders: typeof aiProviders;
   auth: typeof auth;
   characters: typeof characters;
   gameEngine: typeof gameEngine;
