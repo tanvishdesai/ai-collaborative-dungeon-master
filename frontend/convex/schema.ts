@@ -72,16 +72,20 @@ export default defineSchema({
     level: v.number(),
     experience: v.number(),
     health: v.number(),
-    mana: v.number(),
     strength: v.number(),
-    intelligence: v.number(),
-    agility: v.number(),
     defense: v.number(),
-    luck: v.number(),
     currentHealth: v.number(),
-    currentMana: v.number(),
     gold: v.number(),
     readyForGame: v.boolean(),
+    // Deprecated stats kept optional only so existing character rows from the
+    // old schema still validate during the push. Nothing reads or writes them.
+    // After running `npx convex run migrations:dropDeprecatedCharacterFields`
+    // to strip them from old rows, these lines can be deleted for good.
+    mana: v.optional(v.number()),
+    currentMana: v.optional(v.number()),
+    intelligence: v.optional(v.number()),
+    agility: v.optional(v.number()),
+    luck: v.optional(v.number()),
   })
     .index("by_room_and_user", ["roomId", "userId"])
     .index("by_room_and_name", ["roomId", "characterName"]),

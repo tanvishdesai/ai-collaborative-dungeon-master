@@ -3,10 +3,13 @@
 import {
   AlertCircle,
   Compass,
+  HelpCircle,
   Loader2,
   LogOut,
   MapPin,
   MessageCircle,
+  Package,
+  Search,
   Send,
   Skull,
   Sparkles,
@@ -16,12 +19,13 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { Button } from "@/components/ui/button";
 import { authErrorMessage, useAuth } from "@/hooks/use-auth";
+
+const TUTORIAL_SEEN_KEY = "vismrit-ghati-tutorial-seen";
 
 export default function PlayPage() {
   return (
@@ -50,28 +54,31 @@ function GamePlay() {
     api.locations.listConnected,
     roomId ? { roomId } : "skip",
   );
-  const npcs = useQuery(api.npcs.list, roomId ? { roomId } : "skip");
 
   const processAction = useMutation(api.gameEngine.processAction);
-  const talkToNpc = useAction(api.ai.talkToNpc);
 
   const [actionText, setActionText] = useState("");
   const [outcome, setOutcome] = useState<{ text: string; status: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTraveling, setIsTraveling] = useState(false);
-  const [npcModalOpen, setNpcModalOpen] = useState(false);
-  const [selectedNpcId, setSelectedNpcId] = useState<Id<"npcs"> | "">("");
-  const [npcMessage, setNpcMessage] = useState("");
-  const [npcReply, setNpcReply] = useState<string | null>(null);
-  const [npcPending, setNpcPending] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const storyEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const isLoading =
     roomData === undefined ||
     (roomId && gameState === undefined) ||
     (roomId && storyEntries === undefined);
+
+  // Show the welcome tutorial once, on the player's first visit.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.localStorage.getItem(TUTORIAL_SEEN_KEY)) {
+      setHelpOpen(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (roomData && roomData.room.status === "waiting") {
@@ -88,6 +95,13 @@ function GamePlay() {
     const timer = setTimeout(() => setOutcome(null), 8000);
     return () => clearTimeout(timer);
   }, [outcome]);
+
+  function closeTutorial() {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
+    }
+    setHelpOpen(false);
+  }
 
   async function submitAction(text: string) {
     if (!roomId || !text.trim()) return;
@@ -126,24 +140,19 @@ function GamePlay() {
     }
   }
 
-  async function onNpcTalk(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!roomId || !selectedNpcId || !npcMessage.trim()) return;
-    setNpcPending(true);
-    setNpcReply(null);
-    try {
-      const result = await talkToNpc({
-        roomId,
-        npcId: selectedNpcId as Id<"npcs">,
-        message: npcMessage.trim(),
-      });
-      setNpcReply(result.dialogue ?? "The NPC remains silent.");
-      setNpcMessage("");
-    } catch (err) {
-      setNpcReply(authErrorMessage(err));
-    } finally {
-      setNpcPending(false);
-    }
+  // Quick-action buttons prefill a ready-to-send command so new players never
+  // face a blank command box. They fill the input (with a sensible target when
+  // one is nearby) and focus it, so the player just presses Act to confirm.
+  function fillCommand(text: string) {
+    setActionText(text);
+    // Focus and place the cursor at the end so the player can complete/edit it.
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+    });
   }
 
   if (isLoading) {
@@ -169,7 +178,44 @@ function GamePlay() {
   }
 
   const hpPercent = Math.round((character.currentHealth / character.health) * 100);
-  const mpPercent = Math.round((character.currentMana / character.mana) * 100);
+  const firstMonster = gameState.activeMonsters[0];
+  const firstNpc = gameState.activeNpcs[0];
+  const firstLocation = connectedLocations?.[0];
+  const firstItem = gameState.inventory.party[0];
+  const partyItems = gameState.inventory.party;
+
+  const quickActions = [
+    {
+      key: "look",
+      label: "Look around",
+      Icon: Search,
+      command: "inspect room",
+    },
+    {
+      key: "attack",
+      label: "Attack",
+      Icon: Swords,
+      command: firstMonster ? `attack ${firstMonster.name}` : "attack ",
+    },
+    {
+      key: "talk",
+      label: "Talk",
+      Icon: MessageCircle,
+      command: firstNpc ? `talk to ${firstNpc.name}` : "talk to ",
+    },
+    {
+      key: "travel",
+      label: "Travel",
+      Icon: Compass,
+      command: firstLocation ? `go to ${firstLocation.name}` : "go to ",
+    },
+    {
+      key: "use",
+      label: "Use item",
+      Icon: Package,
+      command: firstItem ? `use ${firstItem}` : "use ",
+    },
+  ];
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
@@ -180,10 +226,16 @@ function GamePlay() {
           </p>
           <h1 className="mt-1 text-2xl font-semibold text-foreground md:text-3xl">Adventure</h1>
         </div>
-        <Button variant="secondary" onClick={logout} className="self-start">
-          <LogOut className="h-4 w-4" />
-          Logout
-        </Button>
+        <div className="flex gap-2 self-start">
+          <Button variant="secondary" onClick={() => setHelpOpen(true)}>
+            <HelpCircle className="h-4 w-4" />
+            How to play
+          </Button>
+          <Button variant="secondary" onClick={logout}>
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
+        </div>
       </header>
 
       {(outcome || actionError) && (
@@ -217,25 +269,47 @@ function GamePlay() {
             </div>
           </div>
 
-          <form onSubmit={onActionSubmit} className="rounded-lg border border-border bg-card/80 p-4 shadow-glow">
-            <label htmlFor="action" className="mb-2 block text-sm font-medium text-muted-foreground">
-              Your action
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="action"
-                value={actionText}
-                onChange={(e) => setActionText(e.target.value)}
-                placeholder="inspect room, attack gnoll hunter, open moldy chest..."
-                className="min-h-11 flex-1 rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-                disabled={isSubmitting}
-              />
-              <Button type="submit" disabled={isSubmitting || !actionText.trim()}>
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Act
-              </Button>
+          <div className="rounded-lg border border-border bg-card/80 p-4 shadow-glow">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
+              Tap a quick action, then press Act — or just type what you want to do.
+            </p>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {quickActions.map(({ key, label, Icon, command }) => (
+                <Button
+                  key={key}
+                  type="button"
+                  variant="secondary"
+                  className="text-xs"
+                  disabled={isSubmitting || isTraveling}
+                  onClick={() => fillCommand(command)}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </Button>
+              ))}
             </div>
-          </form>
+
+            <form onSubmit={onActionSubmit}>
+              <label htmlFor="action" className="mb-2 block text-sm font-medium text-muted-foreground">
+                Your action
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="action"
+                  ref={inputRef}
+                  value={actionText}
+                  onChange={(e) => setActionText(e.target.value)}
+                  placeholder="inspect room, attack rakshasa prowler, open old sandook..."
+                  className="min-h-11 flex-1 rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                  disabled={isSubmitting}
+                />
+                <Button type="submit" disabled={isSubmitting || !actionText.trim()}>
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Act
+                </Button>
+              </div>
+            </form>
+          </div>
         </section>
 
         <aside className="flex flex-col gap-4">
@@ -250,24 +324,13 @@ function GamePlay() {
             <div className="space-y-2 text-xs">
               <div>
                 <div className="mb-1 flex justify-between">
-                  <span className="text-muted-foreground">HP</span>
+                  <span className="text-muted-foreground">Health</span>
                   <span className="text-rose-400">
                     {character.currentHealth}/{character.health}
                   </span>
                 </div>
                 <div className="h-2 rounded-full bg-muted">
                   <div className="h-full rounded-full bg-rose-500" style={{ width: `${hpPercent}%` }} />
-                </div>
-              </div>
-              <div>
-                <div className="mb-1 flex justify-between">
-                  <span className="text-muted-foreground">MP</span>
-                  <span className="text-blue-400">
-                    {character.currentMana}/{character.mana}
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-blue-500" style={{ width: `${mpPercent}%` }} />
                 </div>
               </div>
               <p className="pt-1 text-amber-400 font-semibold">{character.gold} gold</p>
@@ -279,14 +342,14 @@ function GamePlay() {
               <MapPin className="h-4 w-4 text-accent" />
               <span className="font-semibold">{gameState.currentLocation}</span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {gameState.currentTime} · {gameState.weather}
-            </p>
-            <p className="mt-2 text-xs text-primary">{gameState.currentQuest}</p>
+            <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">Your goal</p>
+              <p className="mt-0.5 text-xs text-primary">{gameState.currentQuest}</p>
+            </div>
 
             <div className="mt-4 space-y-3 text-xs">
               <div>
-                <p className="mb-1 font-semibold uppercase tracking-wider text-muted-foreground">NPCs</p>
+                <p className="mb-1 font-semibold uppercase tracking-wider text-muted-foreground">People nearby</p>
                 {gameState.activeNpcs.length === 0 ? (
                   <p className="text-muted-foreground">None nearby</p>
                 ) : (
@@ -300,7 +363,7 @@ function GamePlay() {
                 )}
               </div>
               <div>
-                <p className="mb-1 font-semibold uppercase tracking-wider text-muted-foreground">Monsters</p>
+                <p className="mb-1 font-semibold uppercase tracking-wider text-muted-foreground">Enemies</p>
                 {gameState.activeMonsters.length === 0 ? (
                   <p className="text-muted-foreground">None nearby</p>
                 ) : (
@@ -315,7 +378,7 @@ function GamePlay() {
                 )}
               </div>
               <div>
-                <p className="mb-1 font-semibold uppercase tracking-wider text-muted-foreground">Objects</p>
+                <p className="mb-1 font-semibold uppercase tracking-wider text-muted-foreground">Things here</p>
                 {gameState.objects.length === 0 ? (
                   <p className="text-muted-foreground">Nothing notable</p>
                 ) : (
@@ -329,6 +392,27 @@ function GamePlay() {
                 )}
               </div>
             </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card/80 p-4 shadow-glow">
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+              <Package className="h-4 w-4 text-accent" />
+              Items
+            </div>
+            {partyItems.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Your bag is empty.</p>
+            ) : (
+              <ul className="flex flex-wrap gap-2">
+                {partyItems.map((item, idx) => (
+                  <li
+                    key={`${item}-${idx}`}
+                    className="rounded-md border border-border bg-background/50 px-2 py-1 text-xs text-foreground/90"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {connectedLocations && connectedLocations.length > 0 && (
@@ -353,69 +437,65 @@ function GamePlay() {
               </div>
             </div>
           )}
-
-          <Button variant="secondary" onClick={() => setNpcModalOpen(true)}>
-            <MessageCircle className="h-4 w-4" />
-            Talk to NPC (AI)
-          </Button>
         </aside>
       </div>
 
-      {npcModalOpen && (
+      {helpOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-lg border border-border bg-card p-5 shadow-glow">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-semibold">Talk to NPC</h3>
+          <div className="w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-glow">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-foreground">Namaste, veer! 🙏</h3>
+                <p className="mt-1 text-sm text-primary">How to play</p>
+              </div>
               <button
                 type="button"
-                onClick={() => {
-                  setNpcModalOpen(false);
-                  setNpcReply(null);
-                }}
+                onClick={closeTutorial}
                 className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+                aria-label="Close"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={onNpcTalk} className="grid gap-3">
-              <label className="grid gap-1 text-sm">
-                NPC
-                <select
-                  value={selectedNpcId}
-                  onChange={(e) => setSelectedNpcId(e.target.value as Id<"npcs"> | "")}
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-                  required
-                >
-                  <option value="">Select an NPC...</option>
-                  {npcs?.map((npc) => (
-                    <option key={npc._id} value={npc._id}>
-                      {npc.name} ({npc.profession})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm">
-                Message
-                <textarea
-                  value={npcMessage}
-                  onChange={(e) => setNpcMessage(e.target.value)}
-                  rows={3}
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm resize-none"
-                  placeholder="What do you say?"
-                  required
-                />
-              </label>
-              {npcReply && (
-                <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm italic">
-                  {npcReply}
-                </div>
-              )}
-              <Button type="submit" disabled={npcPending}>
-                {npcPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
-                Send
-              </Button>
-            </form>
+            <div className="space-y-3 text-sm leading-relaxed text-foreground/90">
+              <p>
+                You have entered <span className="font-semibold">Vismrit Ghati</span>, the Forgotten
+                Valley — a living story you and your friends shape together.
+              </p>
+              <p>
+                This is not a game of fixed buttons and rules. You simply say what you want to do, and
+                the story responds. There is no wrong move — just play like you are telling a tale.
+              </p>
+              <div className="rounded-md border border-border bg-background/50 p-3">
+                <p className="mb-2 font-semibold text-foreground">Two easy ways to act:</p>
+                <ol className="ml-4 list-decimal space-y-1 text-foreground/90">
+                  <li>
+                    Tap a quick button —{" "}
+                    <span className="text-primary">Look around, Attack, Talk, Travel, Use item</span>{" "}
+                    — then press <span className="font-semibold">Act</span>.
+                  </li>
+                  <li>
+                    Or type your own action in plain words, like{" "}
+                    <span className="italic">&ldquo;inspect the old sandook&rdquo;</span> or{" "}
+                    <span className="italic">&ldquo;talk to Devdas&rdquo;</span>.
+                  </li>
+                </ol>
+              </div>
+              <p>
+                On the right you can see where you are, who and what is nearby, the items in your bag,
+                and <span className="font-semibold">your goal</span>. Follow the goal to move the
+                story forward.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Tap <span className="font-semibold">&ldquo;How to play&rdquo;</span> at the top
+                anytime to see this again.
+              </p>
+            </div>
+
+            <Button onClick={closeTutorial} className="mt-5 w-full">
+              Begin the adventure
+            </Button>
           </div>
         </div>
       )}

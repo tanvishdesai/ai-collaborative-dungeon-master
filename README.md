@@ -6,7 +6,7 @@ A real-time multiplayer fantasy storytelling game guided by an AI Dungeon Master
 
 - Real-time multiplayer lobbies via Convex reactive queries (no Socket.IO)
 - AI Dungeon Master narration with Gemini (`gemini-2.0-flash`)
-- Seeded Forgotten Vale world (6 locations, NPCs, buildings, objects)
+- Seeded Vismrit Ghati (the Forgotten Valley) — an Indian mythological world of 6 locations, NPCs, buildings, and objects
 - Character classes, combat, travel, inventory, and NPC conversation
 - Convex Auth (email + password)
 
