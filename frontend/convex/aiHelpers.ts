@@ -31,8 +31,6 @@ export const getNarrationContext = internalQuery({
       level: c.level,
       hp: c.currentHealth,
       maxHp: c.health,
-      mana: c.currentMana,
-      maxMana: c.mana,
     }));
 
     const actingCharacter = characters.find((c) => c.userId === userId);

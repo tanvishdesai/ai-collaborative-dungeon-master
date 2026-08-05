@@ -7,12 +7,12 @@ import {
 } from "./lib/sceneHelpers";
 
 const BIOMES = [
-  ["Plains", "Flat grasslands and gentle valleys, ideal for settlements."],
-  ["Forest", "Dense woodlands filled with towering trees and hidden shadows."],
-  ["River", "Flowing watercourses, wetlands, and aquatic creatures."],
-  ["Mountain", "Rugged cliffs, freezing peaks, and vertical passes."],
-  ["Dungeon", "Subterranean crypts, caves, and ancient underground vaults."],
-  ["Castle", "Gothic fortresses, keeps, and stone castles."],
+  ["Plains", "Open fields and gentle river-plains, dotted with peepal trees and mud-and-thatch homes — the heart of village life."],
+  ["Forest", "A dense jungle of sal and banyan, where the wind carries whispered warnings and unseen things watch from the shadows."],
+  ["River", "Sacred flowing waters, ghats, and reed-choked banks where water-spirits and nagas guard the crossings."],
+  ["Mountain", "The frozen slopes of the great Himalaya, cut by trident-shaped peaks and haunted by mountain rakshasas."],
+  ["Dungeon", "The Patala under-realm — lightless crypts, dust, and cobwebbed vaults where restless spirits and bone-tantriks dwell."],
+  ["Castle", "Ancient stone forts (durgs) crowning the hills, their halls ruled by asuras and vetalas since the age of the devas."],
 ] as const;
 
 export const generateWorld = internalMutation({
@@ -33,25 +33,25 @@ export const generateWorld = internalMutation({
 
     const regionId = await ctx.db.insert("regions", {
       roomId,
-      name: "The Forgotten Vale",
+      name: "Vismrit Ghati",
       description:
-        "A secluded valley forgotten by mapmakers, harboring ancient secrets.",
+        "The Forgotten Valley — a hidden vale below the Himalayas that mapmakers erased and time forgot, still holding secrets from the age of devas and asuras.",
     });
 
     const villageId = await ctx.db.insert("locations", {
       roomId,
       regionId,
       biomeId: biomeIds.Plains,
-      name: "Stoneford Village",
+      name: "Shilagram Village",
       description:
-        "A peaceful village built next to a river crossing. Safe but filled with rumors.",
+        "A peaceful village beside a river ghat, its lanes fragrant with cooking fires and marigold. Safe, but thick with whispered rumours.",
       biome: "Plains",
       connectedLocations: [],
       npcList: [
         {
-          name: "Elder Jonas",
+          name: "Mukhiya Raghunath",
           dialogue:
-            "Travelers! Beware the Whispering Forest to our north. Shadows walk there.",
+            "Beware, travellers! To our north lies the Sarpavan — the Whispering Forest. Rakshasas walk among its shadows.",
         },
       ],
       monsterList: [],
@@ -64,15 +64,15 @@ export const generateWorld = internalMutation({
       roomId,
       regionId,
       biomeId: biomeIds.Forest,
-      name: "Whispering Forest",
+      name: "Sarpavan Forest",
       description:
-        "A dense canopy where the wind sounds like whispered warnings. Hostile creatures lurk here.",
+        "The Whispering Forest, a dense canopy of sal and banyan where the wind hisses like a warning. Rakshasas and prowling spirits hunt the unwary here.",
       biome: "Forest",
       connectedLocations: [],
       npcList: [],
       monsterList: [
         {
-          name: "gnoll hunter",
+          name: "rakshasa prowler",
           health: 35,
           maxHealth: 35,
           damage: 10,
@@ -81,7 +81,7 @@ export const generateWorld = internalMutation({
           gold: 25,
         },
       ],
-      lootTable: { gold: 15, items: ["healing herb"] },
+      lootTable: { gold: 15, items: ["sanjeevani herb"] },
       weather: "Foggy",
       dangerLevel: 1,
     });
@@ -90,15 +90,15 @@ export const generateWorld = internalMutation({
       roomId,
       regionId,
       biomeId: biomeIds.River,
-      name: "Silver River",
+      name: "Rupya Nadi",
       description:
-        "The sparkling waters of the Silver River. Strong currents and water elementals block passage.",
+        "The Silver River, its holy waters glittering under the sun. Fierce currents and a coiling jal naga bar the crossing.",
       biome: "River",
       connectedLocations: [],
       npcList: [],
       monsterList: [
         {
-          name: "water elemental",
+          name: "jal naga",
           health: 45,
           maxHealth: 45,
           damage: 12,
@@ -107,7 +107,7 @@ export const generateWorld = internalMutation({
           gold: 30,
         },
       ],
-      lootTable: { gold: 20, items: ["mana potion"] },
+      lootTable: { gold: 20, items: ["soma potion"] },
       weather: "Rainy",
       dangerLevel: 2,
     });
@@ -116,15 +116,15 @@ export const generateWorld = internalMutation({
       roomId,
       regionId,
       biomeId: biomeIds.Mountain,
-      name: "Spine Mountain",
+      name: "Trishul Peak",
       description:
-        "A treacherous, rocky path heading high into the snowline. Mountain trolls patrol the heights.",
+        "A treacherous, rock-strewn path climbing into the snowline of the trident-shaped mountain. Hulking mountain rakshasas patrol the heights.",
       biome: "Mountain",
       connectedLocations: [],
       npcList: [],
       monsterList: [
         {
-          name: "mountain troll",
+          name: "pahadi rakshasa",
           health: 65,
           maxHealth: 65,
           damage: 15,
@@ -133,7 +133,7 @@ export const generateWorld = internalMutation({
           gold: 60,
         },
       ],
-      lootTable: { gold: 40, items: ["steel sword"] },
+      lootTable: { gold: 40, items: ["steel talwar"] },
       weather: "Stormy",
       dangerLevel: 3,
     });
@@ -142,15 +142,15 @@ export const generateWorld = internalMutation({
       roomId,
       regionId,
       biomeId: biomeIds.Dungeon,
-      name: "Cryptic Dungeon",
+      name: "Patala Crypt",
       description:
-        "A dark, subterranean crypt full of dust, cobwebs, and undead mages searching for runic keys.",
+        "A lightless under-realm crypt thick with dust and cobwebs, where undead bone-tantriks chant over lost runic keys.",
       biome: "Dungeon",
       connectedLocations: [],
       npcList: [],
       monsterList: [
         {
-          name: "skeletal mage",
+          name: "asthi tantrik",
           health: 55,
           maxHealth: 55,
           damage: 16,
@@ -159,7 +159,7 @@ export const generateWorld = internalMutation({
           gold: 80,
         },
       ],
-      lootTable: { gold: 100, items: ["crypt key"] },
+      lootTable: { gold: 100, items: ["patala key"] },
       weather: "Foggy",
       dangerLevel: 4,
     });
@@ -168,15 +168,15 @@ export const generateWorld = internalMutation({
       roomId,
       regionId,
       biomeId: biomeIds.Castle,
-      name: "Shadowfang Castle",
+      name: "Chhaya Durg",
       description:
-        "A towering, dark stone castle overlooking the vale. A vampire lord rules from his throne room.",
+        "The Shadow Fort — a towering black-stone durg brooding over the valley. A dreaded Vetala King holds court from its throne of bone.",
       biome: "Castle",
       connectedLocations: [],
       npcList: [],
       monsterList: [
         {
-          name: "vampire lord",
+          name: "vetala king",
           health: 110,
           maxHealth: 110,
           damage: 22,
@@ -185,7 +185,7 @@ export const generateWorld = internalMutation({
           gold: 250,
         },
       ],
-      lootTable: { gold: 300, items: ["Holy Grail"] },
+      lootTable: { gold: 300, items: ["Amrit Kalash"] },
       weather: "Stormy",
       dangerLevel: 5,
     });
@@ -212,130 +212,130 @@ export const generateWorld = internalMutation({
     await ctx.db.insert("npcs", {
       roomId,
       locationId: villageId,
-      name: "Barman Ted",
-      race: "Human",
-      profession: "Barman",
-      personality: "Gruff, friendly, talkative about rumors",
+      name: "Sarai-keeper Devdas",
+      race: "Manav",
+      profession: "Innkeeper",
+      personality: "Gruff, warm-hearted, endlessly full of gossip",
       mood: "Tired",
-      inventory: { mead: 5, ale: 10 },
+      inventory: { thandai: 5, lassi: 10 },
       relationships: {},
       dailySchedule:
-        "Morning: Stocking ale at the cellar, Afternoon/Night: Tending the bar at The Rusty Anchor Tavern",
-      goals: "Keep the tavern running, hear all gossip in the valley",
+        "Morning: Churning thandai in the cellar, Afternoon/Night: Running the Peepal Chhaya Sarai",
+      goals: "Keep the sarai lamps lit and hear every rumour in the valley",
     });
 
     await ctx.db.insert("npcs", {
       roomId,
       locationId: villageId,
-      name: "Merchant Alaric",
-      race: "Dwarf",
+      name: "Seth Amrit",
+      race: "Yaksha",
       profession: "Merchant",
-      personality: "Jolly, shrewd, likes hard bargaining",
+      personality: "Jolly, shrewd, loves a hard bargain",
       mood: "Happy",
-      inventory: { "health potion": 3, "mana potion": 3 },
+      inventory: { "sanjeevani potion": 3, "soma potion": 3 },
       relationships: {},
       dailySchedule:
-        "Morning/Afternoon: Running the merchant stall in the market square, Night: Drinking at the tavern",
-      goals: "Earn gold, buy rare artifacts from adventurers",
+        "Morning/Afternoon: Minding his stall in the village haat, Night: Sipping thandai at the sarai",
+      goals: "Earn gold and buy rare relics from wandering adventurers",
     });
 
     await ctx.db.insert("npcs", {
       roomId,
       locationId: villageId,
-      name: "Priestess Alara",
-      race: "Elf",
+      name: "Pujarin Anasuya",
+      race: "Gandharva",
       profession: "Priestess",
-      personality: "Peaceful, soft-spoken, spiritual",
+      personality: "Serene, soft-spoken, deeply devout",
       mood: "Peaceful",
-      inventory: { "holy water": 2 },
+      inventory: { gangajal: 2 },
       relationships: {},
       dailySchedule:
-        "Morning: Prayers at the altar, Afternoon: Guiding villagers, Night: Studying ancient texts",
-      goals: "Promote light and healing, cleanse dungeon evil",
+        "Morning: Aarti at the mandir, Afternoon: Guiding villagers, Night: Studying ancient shlokas",
+      goals: "Spread light and healing, and cleanse the evil of the Patala Crypt",
     });
 
     await ctx.db.insert("npcs", {
       roomId,
       locationId: villageId,
-      name: "Wizard Elidor",
-      race: "Human",
-      profession: "Wizard",
-      personality: "Wise, cryptic, secretive about magic",
+      name: "Rishi Vidyut",
+      race: "Manav",
+      profession: "Tantrik-Sage",
+      personality: "Wise, cryptic, guarded about his mantras",
       mood: "Suspicious",
-      inventory: { "magic scroll": 1 },
+      inventory: { "mantra scroll": 1 },
       relationships: {},
       dailySchedule:
-        "Morning: Reading in the tower, Afternoon: Walking near the stone gate, Night: Observing the stars",
-      goals: "Research the ancient seals, guide chosen heroes",
+        "Morning: Reading in his ashram tower, Afternoon: Walking near the stone gate, Night: Reading the stars",
+      goals: "Study the ancient seals and guide the chosen heroes",
     });
 
     await ctx.db.insert("npcs", {
       roomId,
       locationId: forestId,
-      name: "Herbalist Aerith",
-      race: "Elf",
+      name: "Vaidya Ahalya",
+      race: "Gandharva",
       profession: "Herbalist",
       personality: "Gentle, nervous, desperately helpful",
       mood: "Anxious",
-      inventory: { "healing herb": 4, elixir: 1 },
+      inventory: { "sanjeevani herb": 4, "amrit elixir": 1 },
       relationships: {},
       dailySchedule:
-        "Morning: Gathering herbs in the forest, Afternoon/Night: Hiding in the forest camp",
-      goals: "Survival, reward brave heroes who heal her wounds",
+        "Morning: Gathering jadi-buti herbs in the forest, Afternoon/Night: Hiding in her forest camp",
+      goals: "Survive, and reward the brave who tend her wounds",
     });
 
     await ctx.db.insert("buildings", {
       locationId: villageId,
-      name: "Wandering Merchant's Guild",
+      name: "Ghumakkad Vyapari's Haat",
       type: "shop",
-      description: "A small wooden store selling potions and simple gear.",
+      description: "A small wooden stall selling potions and simple gear.",
       npcList: [
         {
-          name: "Merchant Alaric",
+          name: "Seth Amrit",
           dialogue:
-            "Looking to buy? I have the finest potions in the vale!",
+            "Looking to buy, friend? I stock the finest potions in the whole valley!",
         },
       ],
       inventory: {
-        items: ["health potion", "mana potion"],
-        prices: { "health potion": 25, "mana potion": 25 },
+        items: ["sanjeevani potion", "soma potion"],
+        prices: { "sanjeevani potion": 25, "soma potion": 25 },
       },
     });
 
     await ctx.db.insert("buildings", {
       locationId: villageId,
-      name: "The Rusty Anchor Tavern",
+      name: "The Peepal Chhaya Sarai",
       type: "tavern",
-      description: "A cozy, bustling tavern offering warm fire, food, and rumors.",
+      description: "A cosy, bustling rest-house offering warm fire, hot food, and hotter rumours.",
       npcList: [
         {
-          name: "Barman Ted",
+          name: "Sarai-keeper Devdas",
           dialogue:
-            "Welcome to the Rusty Anchor! Watch out for the trolls up on Spine Mountain.",
+            "Welcome to the Peepal Chhaya! Mind the mountain rakshasas up on Trishul Peak.",
         },
         {
-          name: "Bard Elidor",
+          name: "Kavi Suradas",
           dialogue:
-            "They say the skeletal mages in the Cryptic Dungeon hold a key to Shadowfang Castle.",
+            "They say the bone-tantriks in the Patala Crypt guard a key to Chhaya Durg itself.",
         },
       ],
       inventory: {
-        drinks: ["dwarven ale", "mead"],
-        prices: { "dwarven ale": 5, mead: 8 },
+        drinks: ["saffron thandai", "sweet lassi"],
+        prices: { "saffron thandai": 5, "sweet lassi": 8 },
       },
     });
 
     await ctx.db.insert("buildings", {
       locationId: villageId,
-      name: "Plains Altar Temple",
+      name: "The Riverside Mandir",
       type: "temple",
       description:
-        "A serene temple offering healing and respite for weary adventurers.",
+        "A serene riverside temple offering healing and rest to weary travellers.",
       npcList: [
         {
-          name: "Priestess Alara",
+          name: "Pujarin Anasuya",
           dialogue:
-            "May the light bless your path. Rest here and heal your wounds.",
+            "May the Devi light your path. Rest here, and let your wounds be healed.",
         },
       ],
       inventory: { blessings: ["heal"], prices: { heal: 10 } },
@@ -343,18 +343,18 @@ export const generateWorld = internalMutation({
 
     await ctx.db.insert("worldObjects", {
       locationId: dungeonId,
-      name: "iron gate",
+      name: "Naga gate",
       type: "gate",
       status: "locked",
-      details: { requires: "crypt key" },
+      details: { requires: "patala key" },
     });
 
     await ctx.db.insert("worldObjects", {
       locationId: forestId,
-      name: "moldy chest",
+      name: "old sandook",
       type: "chest",
       status: "closed",
-      details: { items: ["health potion"], gold: 20 },
+      details: { items: ["sanjeevani potion"], gold: 20 },
     });
 
     const village = (await ctx.db.get(villageId))!;

@@ -37,33 +37,33 @@ interface CharacterCreationProps {
 
 const CLASS_DESCRIPTIONS: Record<CharacterClass, string> = {
   Warrior:
-    "A mighty champion of strength and defense. Thrives in the heat of battle with high health and devastating melee power.",
+    "A mighty veer in the mould of Bhima and Arjun. Thrives in the heat of battle with high health and devastating close combat.",
   Mage:
-    "A master of the arcane arts. Commands overwhelming mana and intelligence to launch devastating spells, though physically vulnerable.",
+    "A tantrik master of mantras and astras. Hurls devastating spells in battle, but is more fragile up close.",
   Archer:
-    "A swift and precise marksman. High agility and critical strike potential allow them to take down foes from a safe distance.",
+    "A swift and unerring dhanurdhar (bowman) like Arjun. Balanced and reliable, felling foes from a safe distance.",
   Rogue:
-    "A master of stealth and fortune. Incredible speed and luck let them strike swiftly, evade attacks, and find hidden riches.",
+    "A cunning wanderer blessed by fortune. Incredible speed and luck let them strike swiftly, slip away, and find hidden riches.",
   Healer:
-    "A devoted protector and support. Wields powerful restorative magic with high mana and healing bonuses to sustain the party.",
+    "A devoted vaidya and protector. Wields powerful restorative mantras with high mana and healing to sustain the party.",
 };
 
 export const AVATARS = [
-  { id: "avatar_1", name: "Shieldmaiden", gradient: "from-amber-600 to-yellow-800", Icon: Shield },
-  { id: "avatar_2", name: "Shadow Weaver", gradient: "from-purple-600 to-indigo-800", Icon: Wand2 },
-  { id: "avatar_3", name: "Gladiator", gradient: "from-red-600 to-rose-900", Icon: Swords },
-  { id: "avatar_4", name: "Pyromancer", gradient: "from-orange-500 to-red-700", Icon: Flame },
-  { id: "avatar_5", name: "Holy Cleric", gradient: "from-pink-500 to-rose-600", Icon: Heart },
-  { id: "avatar_6", name: "Necromancer", gradient: "from-slate-700 to-zinc-900", Icon: Skull },
-  { id: "avatar_7", name: "Rune Knight", gradient: "from-yellow-500 to-amber-700", Icon: Crown },
-  { id: "avatar_8", name: "Plague Doctor", gradient: "from-cyan-600 to-blue-800", Icon: Ghost },
-  { id: "avatar_9", name: "Archmage", gradient: "from-indigo-500 to-purple-700", Icon: Sparkles },
-  { id: "avatar_10", name: "Assassin", gradient: "from-emerald-600 to-teal-800", Icon: Target },
-  { id: "avatar_11", name: "Bard of Lore", gradient: "from-fuchsia-500 to-pink-700", Icon: Music },
-  { id: "avatar_12", name: "Elven Ranger", gradient: "from-lime-600 to-green-800", Icon: Compass },
-  { id: "avatar_13", name: "Monk of Light", gradient: "from-yellow-400 to-orange-600", Icon: Sun },
-  { id: "avatar_14", name: "Druid of Wilds", gradient: "from-green-500 to-emerald-700", Icon: Leaf },
-  { id: "avatar_15", name: "Alchemist", gradient: "from-blue-500 to-cyan-700", Icon: FlaskConical },
+  { id: "avatar_1", name: "Veerangana", gradient: "from-amber-600 to-yellow-800", Icon: Shield },
+  { id: "avatar_2", name: "Maya Tantrik", gradient: "from-purple-600 to-indigo-800", Icon: Wand2 },
+  { id: "avatar_3", name: "Malla Wrestler", gradient: "from-red-600 to-rose-900", Icon: Swords },
+  { id: "avatar_4", name: "Agni Adept", gradient: "from-orange-500 to-red-700", Icon: Flame },
+  { id: "avatar_5", name: "Temple Pujari", gradient: "from-pink-500 to-rose-600", Icon: Heart },
+  { id: "avatar_6", name: "Aghori Tantrik", gradient: "from-slate-700 to-zinc-900", Icon: Skull },
+  { id: "avatar_7", name: "Rune Rajput", gradient: "from-yellow-500 to-amber-700", Icon: Crown },
+  { id: "avatar_8", name: "Wandering Vaidya", gradient: "from-cyan-600 to-blue-800", Icon: Ghost },
+  { id: "avatar_9", name: "Maha-Tantrik", gradient: "from-indigo-500 to-purple-700", Icon: Sparkles },
+  { id: "avatar_10", name: "Vishkanya", gradient: "from-emerald-600 to-teal-800", Icon: Target },
+  { id: "avatar_11", name: "Kavi Bard", gradient: "from-fuchsia-500 to-pink-700", Icon: Music },
+  { id: "avatar_12", name: "Vanvasi Ranger", gradient: "from-lime-600 to-green-800", Icon: Compass },
+  { id: "avatar_13", name: "Surya Sadhu", gradient: "from-yellow-400 to-orange-600", Icon: Sun },
+  { id: "avatar_14", name: "Vanadevi", gradient: "from-green-500 to-emerald-700", Icon: Leaf },
+  { id: "avatar_15", name: "Rasayan Alchemist", gradient: "from-blue-500 to-cyan-700", Icon: FlaskConical },
 ];
 
 export default function CharacterCreation({ roomCode, onCreated }: CharacterCreationProps) {
@@ -103,8 +103,8 @@ export default function CharacterCreation({ roomCode, onCreated }: CharacterCrea
   };
 
   const generateRandomName = () => {
-    const prefixes = ["Thorin", "Eldrin", "Lyra", "Gideon", "Valerie", "Zephyr", "Riona", "Kaelen", "Freya", "Bram", "Sylas", "Morrigan"];
-    const suffixes = ["Oakshield", "Stormweaver", "Swiftbow", "Ironclad", "Sunweaver", "Shadowwhisper", "Goldhand", "Dawnwarden"];
+    const prefixes = ["Arjun", "Bhima", "Karna", "Meera", "Rani", "Vikram", "Anaya", "Kabir", "Rudra", "Tara", "Ishaan", "Nakul"];
+    const suffixes = ["Trishuldhari", "Suryavanshi", "Vajrahast", "Simha", "Meghnaad", "Ranbir", "Sherni", "Dhanurdhar"];
     const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
     const randomSuffix = suffixes[Math.floor(Math.random() * suffixes.length)];
     setCharacterName(`${randomPrefix} ${randomSuffix}`);
@@ -115,7 +115,7 @@ export default function CharacterCreation({ roomCode, onCreated }: CharacterCrea
       <div className="border-b border-border pb-4">
         <h2 className="text-2xl font-bold tracking-tight text-foreground">Create Your Character</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Forge your hero before joining the adventure. Choose class and stats wisely.
+          Forge your veer before you enter Vismrit Ghati, the Forgotten Valley. Choose your path and stats wisely.
         </p>
       </div>
 
@@ -235,39 +235,14 @@ export default function CharacterCreation({ roomCode, onCreated }: CharacterCrea
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Mana</span>
-                    <span className="font-semibold text-blue-400">{activeStats.mana}</span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (activeStats.mana / 150) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border/40 pt-3">
                   <div className="flex justify-between border-b border-border/20 pb-1">
                     <span className="text-muted-foreground text-xs">Strength</span>
                     <span className="font-semibold text-foreground">{activeStats.strength}</span>
                   </div>
                   <div className="flex justify-between border-b border-border/20 pb-1">
-                    <span className="text-muted-foreground text-xs">Agility</span>
-                    <span className="font-semibold text-foreground">{activeStats.agility}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-border/20 pb-1">
-                    <span className="text-muted-foreground text-xs">Intelligence</span>
-                    <span className="font-semibold text-foreground">{activeStats.intelligence}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-border/20 pb-1">
                     <span className="text-muted-foreground text-xs">Defense</span>
                     <span className="font-semibold text-foreground">{activeStats.defense}</span>
-                  </div>
-                  <div className="flex justify-between col-span-2">
-                    <span className="text-muted-foreground text-xs">Luck</span>
-                    <span className="font-semibold text-foreground">{activeStats.luck}</span>
                   </div>
                 </div>
 
