@@ -415,8 +415,6 @@ export const processAction = mutation({
             characterPatch.level = newLevel;
             characterPatch.health = character.health + 20;
             characterPatch.currentHealth = character.health + 20;
-            characterPatch.mana = character.mana + 10;
-            characterPatch.currentMana = character.mana + 10;
             characterPatch.strength = character.strength + 2;
             characterPatch.defense = character.defense + 1;
             levelUpMsg = ` Character leveled up! ${character.characterName} is now Level ${newLevel}!`;
@@ -806,10 +804,6 @@ export const processAction = mutation({
 
       // World phase
       turnStage = "world";
-      const weathers = ["Clear", "Foggy", "Rainy", "Stormy"];
-      if (Math.random() < 0.3) {
-        weather = weathers[Math.floor(Math.random() * weathers.length)]!;
-      }
 
       const timeParts = currentTime.split(" - ");
       const dayNum = parseInt(timeParts[0]!.split(" ")[1]!, 10);

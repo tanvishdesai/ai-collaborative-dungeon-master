@@ -39,9 +39,9 @@ const CLASS_DESCRIPTIONS: Record<CharacterClass, string> = {
   Warrior:
     "A mighty veer in the mould of Bhima and Arjun. Thrives in the heat of battle with high health and devastating close combat.",
   Mage:
-    "A tantrik master of mantras and the arcane. Commands overwhelming mana and intelligence to hurl astras, though physically frail.",
+    "A tantrik master of mantras and astras. Hurls devastating spells in battle, but is more fragile up close.",
   Archer:
-    "A swift and unerring dhanurdhar (bowman) like Arjun. High agility and critical strikes fell foes from a safe distance.",
+    "A swift and unerring dhanurdhar (bowman) like Arjun. Balanced and reliable, felling foes from a safe distance.",
   Rogue:
     "A cunning wanderer blessed by fortune. Incredible speed and luck let them strike swiftly, slip away, and find hidden riches.",
   Healer:
@@ -235,39 +235,14 @@ export default function CharacterCreation({ roomCode, onCreated }: CharacterCrea
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Mana</span>
-                    <span className="font-semibold text-blue-400">{activeStats.mana}</span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(100, (activeStats.mana / 150) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border/40 pt-3">
                   <div className="flex justify-between border-b border-border/20 pb-1">
                     <span className="text-muted-foreground text-xs">Strength</span>
                     <span className="font-semibold text-foreground">{activeStats.strength}</span>
                   </div>
                   <div className="flex justify-between border-b border-border/20 pb-1">
-                    <span className="text-muted-foreground text-xs">Agility</span>
-                    <span className="font-semibold text-foreground">{activeStats.agility}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-border/20 pb-1">
-                    <span className="text-muted-foreground text-xs">Intelligence</span>
-                    <span className="font-semibold text-foreground">{activeStats.intelligence}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-border/20 pb-1">
                     <span className="text-muted-foreground text-xs">Defense</span>
                     <span className="font-semibold text-foreground">{activeStats.defense}</span>
-                  </div>
-                  <div className="flex justify-between col-span-2">
-                    <span className="text-muted-foreground text-xs">Luck</span>
-                    <span className="font-semibold text-foreground">{activeStats.luck}</span>
                   </div>
                 </div>
 

@@ -37,8 +37,6 @@ export type DungeonMasterPromptInput = {
     level: number;
     hp: number;
     maxHp: number;
-    mana: number;
-    maxMana: number;
   }>;
   lastAction: string;
   actionOutcome: string;
@@ -52,7 +50,7 @@ export function renderDungeonMasterPrompt(
   const playersStr = input.players
     .map(
       (p) =>
-        `- ${p.name} (${p.class}, Level ${p.level}): HP ${p.hp}/${p.maxHp}, MP ${p.mana}/${p.maxMana}`,
+        `- ${p.name} (${p.class}, Level ${p.level}): HP ${p.hp}/${p.maxHp}`,
     )
     .join("\n");
 

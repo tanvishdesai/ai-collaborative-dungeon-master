@@ -440,8 +440,7 @@ function WaitingRoom() {
 
                         {char && (
                           <span className="text-muted-foreground">
-                            HP: <span className="text-rose-400 font-semibold">{char.currentHealth}</span> | MP:{" "}
-                            <span className="text-blue-400 font-semibold">{char.currentMana}</span> | Gold:{" "}
+                            HP: <span className="text-rose-400 font-semibold">{char.currentHealth}</span> | Gold:{" "}
                             <span className="text-amber-400 font-semibold">{char.gold}g</span>
                           </span>
                         )}
