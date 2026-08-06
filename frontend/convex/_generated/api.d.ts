@@ -20,6 +20,7 @@ import type * as lib_cascadeDelete from "../lib/cascadeDelete.js";
 import type * as lib_classPresets from "../lib/classPresets.js";
 import type * as lib_sceneHelpers from "../lib/sceneHelpers.js";
 import type * as locations from "../locations.js";
+import type * as migrations from "../migrations.js";
 import type * as npcs from "../npcs.js";
 import type * as promptBuilder from "../promptBuilder.js";
 import type * as rooms from "../rooms.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   "lib/classPresets": typeof lib_classPresets;
   "lib/sceneHelpers": typeof lib_sceneHelpers;
   locations: typeof locations;
+  migrations: typeof migrations;
   npcs: typeof npcs;
   promptBuilder: typeof promptBuilder;
   rooms: typeof rooms;

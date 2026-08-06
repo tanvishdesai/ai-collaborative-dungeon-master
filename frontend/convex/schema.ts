@@ -117,6 +117,7 @@ export default defineSchema({
       v.literal("enemy"),
       v.literal("world"),
     ),
+    threatLevel: v.optional(v.number()),
   }).index("by_room", ["roomId"]),
 
   gameEvents: defineTable({
@@ -140,6 +141,7 @@ export default defineSchema({
   storyHistory: defineTable({
     roomId: v.id("rooms"),
     entryText: v.string(),
+    suggestedActions: v.optional(v.array(v.string())),
   }).index("by_room", ["roomId"]),
 
   npcs: defineTable({

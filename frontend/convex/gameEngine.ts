@@ -259,12 +259,12 @@ export const processAction = mutation({
 
     // 1. INSPECT
     if (
-      ["inspect", "look at", "look around", "search"].some((v) =>
+      ["inspect", "examine", "check", "look at", "look around", "search"].some((v) =>
         cleanedAction.startsWith(v),
       )
     ) {
       let target = cleanedAction
-        .replace(/^(inspect|look at|look around|search)\s+/, "")
+        .replace(/^(inspect|examine|check|look at|look around|search)\s+/, "")
         .trim();
       target = stripArticle(target);
 
@@ -526,13 +526,13 @@ export const processAction = mutation({
     }
     // 5. GO TO
     else if (
-      ["go to ", "move to ", "travel to ", "go ", "move "].some((v) =>
+      ["go to ", "move to ", "travel to ", "follow ", "go ", "move "].some((v) =>
         cleanedAction.startsWith(v),
       )
     ) {
       const target = stripArticle(
         cleanedAction
-          .replace(/^(go to|move to|travel to|go|move)\s+/, "")
+          .replace(/^(go to|move to|travel to|follow|go|move)\s+/, "")
           .trim(),
       );
 
@@ -743,6 +743,7 @@ export const processAction = mutation({
 
     let turnStage = gameState.turnStage;
     let turnIndex = gameState.turnIndex;
+    let threatLevel = gameState.threatLevel ?? 0;
 
     if (resolvedStatus === "success" || resolvedStatus === "failed") {
       if (
@@ -833,6 +834,9 @@ export const processAction = mutation({
 
       turnStage = "player";
       turnIndex += 1;
+      if (turnIndex % 4 === 0) {
+        threatLevel = Math.min(3, threatLevel + 1);
+      }
     }
 
     await ctx.db.patch(gameState._id, {
@@ -848,6 +852,7 @@ export const processAction = mutation({
       worldFlags,
       turnIndex,
       turnStage,
+      threatLevel,
     });
 
     const updatedGameState = (await ctx.db.get(gameState._id))!;

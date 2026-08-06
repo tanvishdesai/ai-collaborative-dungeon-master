@@ -42,7 +42,10 @@ export type DungeonMasterPromptInput = {
   actionOutcome: string;
   recentEvents: Array<{ eventType: string; details: unknown }>;
   storyHistory: string[];
+  threatLevel: number;
 };
+
+const THREAT_DESCRIPTIONS = ["quiet", "stirring", "advancing", "arrived"];
 
 export function renderDungeonMasterPrompt(
   input: DungeonMasterPromptInput,
@@ -106,18 +109,22 @@ STORYTELLING VOICE — VERY IMPORTANT:
 - Draw on Indian mythic texture — devas and asuras, rakshasas, nagas, yakshas, vetalas, rishis and tantriks, mantras and blessings — the way the Ramayana, Mahabharata, and Panchatantra do.
 - Use plain, flowing language with a little natural Hindi/Sanskrit flavour where it fits (e.g. "beta", "veer", "aashirwad", "namaste"). Do NOT sound like a rulebook, a lab report, or a foreign fantasy novel. Avoid dense, clinical, or overly technical wording.
 - Keep it immersive but readable — short, rhythmic sentences an ordinary Indian player will enjoy.
+- Write in plain prose, short paragraphs separated by a blank line. Do NOT use markdown headers, tables, bullet lists, or code fences. Occasional *italics* for emphasis is fine.
 
 CRITICAL INSTRUCTIONS:
 1. DO NOT CALCULATE GAME RULES, DAMAGE, OR HEALTH CHANGES. The game engine has already processed the action and calculated the outcome.
 2. DO NOT MODIFY INVENTORY or grant items.
 3. Simply NARRATE the outcome and expansion of the story based on the provided engine outcome.
 4. Your story narration must be immersive, rich, descriptive, and highly engaging — in the Indian storytelling voice described above.
+5. PACING: Vary the shape of each turn rather than resolving every one the same way — follow a loose rhythm of tension, release, discovery, danger, and rest across turns, not the same beat every time. End the narration on a concrete hook (a sound, a movement, an unanswered question, a closing door) — never on a flat status recap like "You are now in the clearing." The scene itself should surface at least one or two concrete, nameable things the player could act on (an object, a person, a path, a threat).
+6. Also return "next_events": 2-3 short, concrete, player-facing action phrases the game engine can actually execute. Each MUST start with one of these verbs and name a real object/NPC/location from the CONTEXT below exactly as listed there: "inspect", "examine", "search", "open", "attack", "talk to", "go to", "use". Examples: "open old sandook", "talk to Mukhiya Raghunath", "go to Sarpavan Forest". Do NOT use meta phrasing like "what will you do?", flavor-only directions ("follow the sound east"), or targets not present in the CONTEXT.
 
 === CONTEXT ===
 Current Location: ${input.currentLocation}
 Current Time: ${input.currentTime}
 Current Weather: ${input.weather}
 Current Quest: ${input.currentQuest}
+World Threat Level: ${THREAT_DESCRIPTIONS[input.threatLevel] ?? "quiet"} (let this color the narration's mood and urgency even when players are exploring off the main quest — rising danger should be felt, not stated as a number)
 
 Active Players:
 ${playersStr}

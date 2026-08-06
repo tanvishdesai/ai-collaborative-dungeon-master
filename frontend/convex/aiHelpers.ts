@@ -48,10 +48,16 @@ export const getNarrationContext = internalQuery({
       .query("storyHistory")
       .withIndex("by_room", (q) => q.eq("roomId", roomId))
       .collect();
-    const storyHistory = storyEntries
+    const recentStoryEntries = storyEntries
       .sort((a, b) => a._creationTime - b._creationTime)
-      .slice(-15)
-      .map((s) => s.entryText);
+      .slice(-15);
+    // ponytail: truncating older entries instead of LLM-summarizing them is a naive
+    // token-saver; upgrade to a real rolling summary if continuity noticeably degrades.
+    const storyHistory = recentStoryEntries.map((s, i) => {
+      const isRecent = i >= recentStoryEntries.length - 5;
+      if (isRecent || s.entryText.length <= 160) return s.entryText;
+      return s.entryText.slice(0, 160).trimEnd() + "...";
+    });
 
     const recentEventsObjs = gameEvents.sort(
       (a, b) => b._creationTime - a._creationTime,
@@ -70,9 +76,13 @@ export const getNarrationContext = internalQuery({
 });
 
 export const persistNarration = internalMutation({
-  args: { roomId: v.id("rooms"), entryText: v.string() },
-  handler: async (ctx, { roomId, entryText }) => {
-    await ctx.db.insert("storyHistory", { roomId, entryText });
+  args: {
+    roomId: v.id("rooms"),
+    entryText: v.string(),
+    suggestedActions: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, { roomId, entryText, suggestedActions }) => {
+    await ctx.db.insert("storyHistory", { roomId, entryText, suggestedActions });
   },
 });
 

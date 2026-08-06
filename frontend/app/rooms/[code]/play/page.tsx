@@ -20,6 +20,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
+import ReactMarkdown from "react-markdown";
 import { api } from "@/convex/_generated/api";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { Button } from "@/components/ui/button";
@@ -184,6 +185,13 @@ function GamePlay() {
   const firstItem = gameState.inventory.party[0];
   const partyItems = gameState.inventory.party;
 
+  const latestSuggestedActions = storyEntries?.length
+    ? storyEntries[storyEntries.length - 1].suggestedActions
+    : undefined;
+  const suggestedActions = latestSuggestedActions?.length
+    ? latestSuggestedActions
+    : ["Look around"];
+
   const quickActions = [
     {
       key: "look",
@@ -261,9 +269,17 @@ function GamePlay() {
             </div>
             <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-2 text-sm leading-relaxed text-foreground/90">
               {storyEntries?.map((entry) => (
-                <p key={entry._id} className="rounded-md bg-background/50 px-3 py-2">
-                  {entry.entryText}
-                </p>
+                <div key={entry._id} className="rounded-md bg-background/50 px-3 py-2">
+                  <ReactMarkdown
+                    allowedElements={["p", "strong", "em"]}
+                    unwrapDisallowed
+                    components={{
+                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                    }}
+                  >
+                    {entry.entryText}
+                  </ReactMarkdown>
+                </div>
               ))}
               <div ref={storyEndRef} />
             </div>
@@ -273,6 +289,21 @@ function GamePlay() {
             <p className="mb-2 text-xs font-medium text-muted-foreground">
               Tap a quick action, then press Act — or just type what you want to do.
             </p>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {suggestedActions.map((command) => (
+                <Button
+                  key={command}
+                  type="button"
+                  variant="secondary"
+                  className="text-xs"
+                  disabled={isSubmitting || isTraveling}
+                  onClick={() => fillCommand(command)}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {command}
+                </Button>
+              ))}
+            </div>
             <div className="mb-3 flex flex-wrap gap-2">
               {quickActions.map(({ key, label, Icon, command }) => (
                 <Button

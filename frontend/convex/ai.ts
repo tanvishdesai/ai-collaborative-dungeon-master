@@ -125,29 +125,34 @@ export const generateNarration = internalAction({
       actionOutcome: context.lastAction.outcome,
       recentEvents: context.recentEvents,
       storyHistory: context.storyHistory,
+      threatLevel: context.gameState.threatLevel ?? 0,
     });
 
-    let storyText = `The narrative unfolds. ${fallbackNarration}`;
+    let storyText = `*the valley falls quiet a moment, as if the storyteller pauses to catch their breath...* ${fallbackNarration}`;
+    let suggestedActions: string[] | undefined;
 
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const parsed = (await generateJson(
-          promptText,
-          0.7,
-          narrationSchema,
-        )) as AIDungeonMasterResponse;
-        if (parsed.story) {
-          storyText = parsed.story;
-          break;
-        }
-      } catch {
-        if (attempt === 2) break;
+    try {
+      const parsed = (await generateJson(
+        promptText,
+        0.7,
+        narrationSchema,
+      )) as AIDungeonMasterResponse;
+      if (parsed.story) {
+        storyText = parsed.story;
+        suggestedActions = parsed.next_events?.length
+          ? parsed.next_events
+          : undefined;
+      } else {
+        console.error("AI narration response missing 'story' field:", parsed);
       }
+    } catch (err) {
+      console.error("AI narration generation failed:", err);
     }
 
     await ctx.runMutation(internal.aiHelpers.persistNarration, {
       roomId,
       entryText: storyText,
+      suggestedActions,
     });
   },
 });
@@ -220,19 +225,14 @@ Do not break character.
 
     let aiObj: AINPCResponse = fallback;
 
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        aiObj = (await generateJson(
-          promptText,
-          0.8,
-          npcResponseSchema,
-        )) as AINPCResponse;
-        break;
-      } catch {
-        if (attempt < 2) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-      }
+    try {
+      aiObj = (await generateJson(
+        promptText,
+        0.8,
+        npcResponseSchema,
+      )) as AINPCResponse;
+    } catch (err) {
+      console.error("AI NPC talk generation failed:", err);
     }
 
     const newRelationship = Math.max(
