@@ -39,6 +39,13 @@ cd frontend
 npx convex env set GEMINI_API_KEY "<your-key>"
 ```
 
+## Test account
+
+A shared test login exists on both the dev and prod deployments:
+
+- **Email:** `test@example.com`
+- **Password:** `TestPass123`
+
 ## Deploy
 
 See [`infra/deployment.md`](infra/deployment.md). Architecture overview: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
