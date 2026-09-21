@@ -1,161 +1,154 @@
-export type DungeonMasterPromptInput = {
-  currentLocation: string;
-  currentTime: string;
-  weather: string;
-  currentQuest: string;
-  activeNpcs: Array<{
-    name: string;
-    type?: string;
-    status?: string;
-    health?: number;
-    dialogue?: string;
-  }>;
-  activeMonsters: Array<{
-    name: string;
-    health: number;
-    maxHealth: number;
-    damage: number;
-    defense: number;
-  }>;
-  objects: Array<{
-    name: string;
-    type?: string;
-    status?: string;
-  }>;
-  inventory: { party: string[] };
-  worldFlags: {
-    visitedLocations: string[];
-    completedQuests: string[];
-    killedMonsters: string[];
-    openedChests: string[];
-    destroyedObjects: string[];
-    npcRelationships: Record<string, number>;
-  };
-  players: Array<{
-    name: string;
-    class: string;
-    level: number;
-    hp: number;
-    maxHp: number;
-  }>;
-  lastAction: string;
-  actionOutcome: string;
-  recentEvents: Array<{ eventType: string; details: unknown }>;
-  storyHistory: string[];
-  threatLevel: number;
+// Prompt builders. The LLM is confined to producing interviewer questions,
+// moderator prompts, and feedback prose — it never decides who speaks next,
+// scoring order, or session flow. That stays in the deterministic engine.
+
+const DIFFICULTY_GUIDANCE: Record<number, string> = {
+  1: "Keep it approachable — a warm-up question. Do not pile on follow-ups.",
+  2: "A standard question at the level expected for this role.",
+  3: "A probing question. If the last answer was vague or generic, challenge it directly and ask for specifics.",
 };
 
-const THREAT_DESCRIPTIONS = ["quiet", "stirring", "advancing", "arrived"];
+type TranscriptLine = { speakerName: string; speakerRole?: string; text: string };
+type MemoryLine = { question: string; answer: string };
 
-export function renderDungeonMasterPrompt(
-  input: DungeonMasterPromptInput,
-): string {
-  const playersStr = input.players
-    .map(
-      (p) =>
-        `- ${p.name} (${p.class}, Level ${p.level}): HP ${p.hp}/${p.maxHp}`,
-    )
+function renderTranscript(lines: TranscriptLine[]): string {
+  if (!lines.length) return "This is the start of the session.";
+  return lines
+    .map((l) => `${l.speakerName}${l.speakerRole ? ` (${l.speakerRole})` : ""}: ${l.text}`)
     .join("\n");
+}
 
-  const npcsStr = input.activeNpcs.length
-    ? input.activeNpcs
-        .map(
-          (n) =>
-            `- ${n.name} (${n.type ?? "NPC"}): Status: ${n.status ?? "Neutral"}, HP: ${n.health ?? 100}/100. Dialogue clue: "${n.dialogue ?? ""}"`,
-        )
+export type InterviewerPromptInput = {
+  persona: { name: string; personaRole: string; personality: string; focusAreas: string; strictness: number };
+  candidate: { displayName: string; targetRole: string; experienceLevel: string; background: string };
+  session: { targetRole: string; difficulty: string };
+  targetCompetency: string;
+  difficultyLevel: number;
+  questionIndex: number;
+  totalQuestions: number;
+  recentTranscript: TranscriptLine[];
+  personaMemory: MemoryLine[];
+};
+
+export function renderInterviewerPrompt(input: InterviewerPromptInput): string {
+  const {
+    persona,
+    candidate,
+    session,
+    targetCompetency,
+    difficultyLevel,
+    questionIndex,
+    totalQuestions,
+    recentTranscript,
+    personaMemory,
+  } = input;
+
+  const memoryStr = personaMemory.length
+    ? personaMemory
+        .map((m) => `- You asked: "${m.question}" → ${candidate.displayName} answered: "${m.answer}"`)
         .join("\n")
-    : "No active NPCs in this location.";
+    : "No earlier exchanges with this candidate yet.";
 
-  const monstersStr = input.activeMonsters.length
-    ? input.activeMonsters
-        .map(
-          (m) =>
-            `- ${m.name}: HP ${m.health}/${m.maxHealth}, Damage: ${m.damage}, Defense: ${m.defense}`,
-        )
-        .join("\n")
-    : "No active monsters in this location.";
+  const isFirst = questionIndex === 0;
+  const isLast = questionIndex >= totalQuestions - 1;
 
-  const objectsStr = input.objects.length
-    ? input.objects
-        .map(
-          (o) =>
-            `- ${o.name} (${o.type ?? "Object"}): Status: ${o.status ?? "Neutral"}`,
-        )
-        .join("\n")
-    : "No active objects in this location.";
+  return `You are ${persona.name}, a ${persona.personaRole} on the interview panel for a campus placement mock interview.
+Your personality: ${persona.personality}
+You focus on: ${persona.focusAreas}
+Your strictness (1 gentle, 5 tough): ${persona.strictness}.
 
-  const recentEventsStr = input.recentEvents.length
-    ? input.recentEvents
-        .map((e) => `- Event: ${e.eventType} | Details: ${JSON.stringify(e.details)}`)
-        .join("\n")
-    : "No recent events.";
+You are interviewing ${candidate.displayName}, applying for the role of "${session.targetRole || candidate.targetRole}".
+Candidate background: experience level = ${candidate.experienceLevel}. Notes: ${candidate.background || "None provided."}
 
-  const historyStr = input.storyHistory.length
-    ? input.storyHistory
-        .map((entry, idx) => `Event ${idx + 1}: ${entry}`)
-        .join("\n")
-    : "No prior history.";
+This is question ${questionIndex + 1} of ${totalQuestions}. Session difficulty: ${session.difficulty}.
+${DIFFICULTY_GUIDANCE[difficultyLevel] ?? DIFFICULTY_GUIDANCE[2]}
+The competency this question should assess: ${targetCompetency}.
 
-  const partyInv = input.inventory.party.length
-    ? input.inventory.party.join(", ")
-    : "Empty";
+Your memory of this candidate's earlier answers:
+${memoryStr}
 
-  return `You are the Sutradhaar (story-weaver) and Dungeon Master of a collaborative Indian mythological adventure set in Vismrit Ghati, the Forgotten Valley below the Himalayas.
-Your role is strictly to narrate the outcome of player actions, describe the environment/weather changes, write NPC dialogue, and depict combat rounds.
+Recent conversation:
+${renderTranscript(recentTranscript)}
 
-STORYTELLING VOICE — VERY IMPORTANT:
-- Narrate the way an Indian elder tells a tale by lamplight (dadi-nani ki kahani) or a village Sutradhaar recites an epic — warm, vivid, and easy for an Indian reader to picture. This is a FOLK STORY, not a science-fiction or Western fantasy report.
-- Ground every scene in Indian sights, sounds, and smells: peepal and banyan trees, marigold and incense, temple bells and conch (shankh), monsoon rain, ghats and rivers, mud-and-thatch homes, chai and thandai, diyas and lamplight, the Himalayan cold.
-- Draw on Indian mythic texture — devas and asuras, rakshasas, nagas, yakshas, vetalas, rishis and tantriks, mantras and blessings — the way the Ramayana, Mahabharata, and Panchatantra do.
-- Use plain, flowing language with a little natural Hindi/Sanskrit flavour where it fits (e.g. "beta", "veer", "aashirwad", "namaste"). Do NOT sound like a rulebook, a lab report, or a foreign fantasy novel. Avoid dense, clinical, or overly technical wording.
-- Keep it immersive but readable — short, rhythmic sentences an ordinary Indian player will enjoy.
-- Write in plain prose, short paragraphs separated by a blank line. Do NOT use markdown headers, tables, bullet lists, or code fences. Occasional *italics* for emphasis is fine.
+INSTRUCTIONS:
+- ${isFirst ? "Open warmly: a one-line greeting, then your first question." : "If the candidate's last answer was weak, vague, or interesting, briefly react or probe it in one sentence (this is what makes you feel real) — then ask your question."}
+- Ask exactly ONE clear question that assesses "${targetCompetency}" for a ${session.targetRole || candidate.targetRole} role.
+- Speak naturally as a real interviewer in an Indian campus placement setting. Professional, human, concise. Do NOT answer for the candidate or coach them.
+${isLast ? "- This is the final question — you may frame it as a closing question." : ""}
 
-CRITICAL INSTRUCTIONS:
-1. DO NOT CALCULATE GAME RULES, DAMAGE, OR HEALTH CHANGES. The game engine has already processed the action and calculated the outcome.
-2. DO NOT MODIFY INVENTORY or grant items.
-3. Simply NARRATE the outcome and expansion of the story based on the provided engine outcome.
-4. Your story narration must be immersive, rich, descriptive, and highly engaging — in the Indian storytelling voice described above.
-5. PACING: Vary the shape of each turn rather than resolving every one the same way — follow a loose rhythm of tension, release, discovery, danger, and rest across turns, not the same beat every time. End the narration on a concrete hook (a sound, a movement, an unanswered question, a closing door) — never on a flat status recap like "You are now in the clearing." The scene itself should surface at least one or two concrete, nameable things the player could act on (an object, a person, a path, a threat).
-6. Also return "next_events": 2-3 short, concrete, player-facing action phrases the game engine can actually execute. Each MUST start with one of these verbs and name a real object/NPC/location from the CONTEXT below exactly as listed there: "inspect", "examine", "search", "open", "attack", "talk to", "go to", "use". Examples: "open old sandook", "talk to Mukhiya Raghunath", "go to Sarpavan Forest". Do NOT use meta phrasing like "what will you do?", flavor-only directions ("follow the sound east"), or targets not present in the CONTEXT.
+Return JSON:
+- "reaction": string — a short (0-2 sentence) in-character reaction to the previous answer, or "" if this is the first question.
+- "question": string — the single question you ask now (do not include the reaction text again).`;
+}
 
-=== CONTEXT ===
-Current Location: ${input.currentLocation}
-Current Time: ${input.currentTime}
-Current Weather: ${input.weather}
-Current Quest: ${input.currentQuest}
-World Threat Level: ${THREAT_DESCRIPTIONS[input.threatLevel] ?? "quiet"} (let this color the narration's mood and urgency even when players are exploring off the main quest — rising danger should be felt, not stated as a number)
+export type ModeratorPromptInput = {
+  topic: string;
+  round: number;
+  totalRounds: number;
+  discussants: string[];
+  recentTranscript: TranscriptLine[];
+};
 
-Active Players:
-${playersStr}
+export function renderModeratorPrompt(input: ModeratorPromptInput): string {
+  const { topic, round, totalRounds, discussants, recentTranscript } = input;
+  const isFirst = round === 0;
 
-Party Inventory:
-${partyInv}
+  return `You are Neha Kapoor, a neutral, professional Group Discussion moderator for a campus placement practice.
+The GD topic is: "${topic}".
+Participants: ${discussants.join(", ")}.
+This is round ${round + 1} of ${totalRounds}.
 
-Active NPCs:
-${npcsStr}
+Recent discussion:
+${renderTranscript(recentTranscript)}
 
-Active Monsters:
-${monstersStr}
+INSTRUCTIONS:
+- ${isFirst ? "Open the discussion: state the topic clearly and invite the group to begin. Keep it to 2-3 sentences." : "Briefly summarise where the discussion stands in one sentence, then steer it forward — introduce a sub-angle or gently invite quieter participants to respond."}
+- Stay neutral. Do NOT take a side or give your own opinion on the topic. Do NOT score anyone here.
+- Keep it short and facilitative.
 
-Objects in Area:
-${objectsStr}
+Return JSON:
+- "reaction": string — "" for the first round, otherwise a one-sentence summary of the discussion so far.
+- "question": string — your facilitation prompt / steer for this round.`;
+}
 
-World Flags & History:
-- Visited Places: ${JSON.stringify(input.worldFlags.visitedLocations)}
-- Completed Quests: ${JSON.stringify(input.worldFlags.completedQuests)}
-- NPC Relationships: ${JSON.stringify(input.worldFlags.npcRelationships)}
+export type FeedbackPromptInput = {
+  mode: "panel_interview" | "group_discussion";
+  participantName: string;
+  targetRole: string;
+  topic: string;
+  competencies: string[];
+  exchanges: Array<{ prompt: string; answer: string }>;
+};
 
-Recent System Events:
-${recentEventsStr}
+export function renderFeedbackPrompt(input: FeedbackPromptInput): string {
+  const { mode, participantName, targetRole, topic, competencies, exchanges } = input;
 
-Recent Story Memory (Last 10-20 Events):
-${historyStr}
+  const exchangesStr = exchanges.length
+    ? exchanges
+        .map((e, i) => `Q${i + 1}: ${e.prompt}\n${participantName}'s answer: ${e.answer}`)
+        .join("\n\n")
+    : "The participant did not provide any substantive answers.";
 
-=== LAST ACTION RESOLVED BY GAME ENGINE ===
-Player action request: "${input.lastAction}"
-Engine Outcome: ${input.actionOutcome}
+  const context =
+    mode === "panel_interview"
+      ? `a mock panel interview for the role of "${targetRole}"`
+      : `a group discussion on the topic "${topic}"`;
 
-Generate the next narration based on the Engine Outcome. Ensure the narration fits the story memory, weather transitions, and room descriptions.
-`;
+  return `You are an expert placement trainer writing an honest, constructive assessment of ${participantName}'s performance in ${context}.
+
+Here is everything ${participantName} said, with the prompts they responded to:
+
+${exchangesStr}
+
+Score the following competencies, each from 1 (poor) to 5 (excellent), based ONLY on the answers above. Be fair but honest — do not inflate scores. If the participant barely engaged, say so and score low.
+
+Competencies to score (use these exact names):
+${competencies.map((c) => `- ${c}`).join("\n")}
+
+Return JSON:
+- "overallScore": number 0-100 — an overall readiness score.
+- "competencies": array of { "name": string (exactly one of the names above), "score": number 1-5, "justification": string (1 sentence, specific to what they said) }. Include every competency listed.
+- "strengths": array of 2-3 short, specific strings.
+- "improvements": array of 2-3 short, specific, actionable strings.
+- "summary": string — 2-3 sentences of overall feedback addressed to ${participantName}.`;
 }

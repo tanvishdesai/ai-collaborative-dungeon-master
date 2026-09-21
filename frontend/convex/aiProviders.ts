@@ -5,15 +5,15 @@ import OpenAI from "openai";
 
 const GENERATION_TIMEOUT_MS = 45_000;
 
-export type AiProvider = "gemini" | "groq" | "nvidia";
+export type AiProvider = "claude" | "gemini" | "groq" | "nvidia";
 
-const DEFAULT_PROVIDER_ORDER: AiProvider[] = ["gemini", "groq", "nvidia"];
+const DEFAULT_PROVIDER_ORDER: AiProvider[] = ["claude", "gemini", "groq", "nvidia"];
 
 export function getPreferredProvider(): AiProvider {
   const requested = process.env.AI_PROVIDER?.toLowerCase();
   return DEFAULT_PROVIDER_ORDER.includes(requested as AiProvider)
     ? (requested as AiProvider)
-    : "gemini";
+    : "claude";
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -37,6 +37,55 @@ function parseJsonObject(text: string): unknown {
     }
     throw new Error("Model did not return valid JSON.");
   }
+}
+
+// Claude via a Claude Code OAuth token (subscription auth). Requires the
+// Bearer header, the oauth beta header, and the Claude Code system identity as
+// the first system block — otherwise Anthropic rejects the token.
+async function callClaude(
+  prompt: string,
+  temperature: number,
+  responseSchema: Record<string, unknown>,
+): Promise<unknown> {
+  const token = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  if (!token) throw new Error("CLAUDE_CODE_OAUTH_TOKEN is not configured.");
+
+  const response = await withTimeout(
+    fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        // ponytail: cheapest model on purpose — do not "upgrade" without asking.
+        model: process.env.CLAUDE_MODEL ?? "claude-haiku-4-5-20251001",
+        max_tokens: 4096,
+        temperature,
+        system: [
+          { type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." },
+          {
+            type: "text",
+            text: `You are a JSON API. Reply with a single valid JSON object only, matching this JSON schema exactly: ${JSON.stringify(responseSchema)}. No markdown, no prose outside JSON.`,
+          },
+        ],
+        messages: [{ role: "user", content: prompt }],
+      }),
+    }),
+    GENERATION_TIMEOUT_MS,
+  );
+
+  if (!response.ok) {
+    throw new Error(`Claude API ${response.status}: ${await response.text()}`);
+  }
+  const data = (await response.json()) as {
+    content?: Array<{ type: string; text?: string }>;
+  };
+  const text = data.content?.find((b) => b.type === "text")?.text;
+  if (!text) throw new Error("Empty response from Claude.");
+  return parseJsonObject(text);
 }
 
 async function callGemini(
@@ -173,6 +222,10 @@ export async function generateJson(
 
   for (const provider of providerOrder(getPreferredProvider())) {
     try {
+      if (provider === "claude") {
+        if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) continue;
+        return await callClaude(prompt, temperature, responseSchema);
+      }
       if (provider === "gemini") {
         if (!process.env.GEMINI_API_KEY) continue;
         return await callGeminiWithRetry(prompt, temperature, responseSchema);
@@ -193,6 +246,6 @@ export async function generateJson(
   throw new Error(
     errors.length
       ? `All AI providers failed. ${errors.join(" | ")}`
-      : "No AI provider configured (set GEMINI_API_KEY, GROQ_API_KEY, and/or NVIDIA_API_KEY).",
+      : "No AI provider configured (set CLAUDE_CODE_OAUTH_TOKEN, GEMINI_API_KEY, GROQ_API_KEY, and/or NVIDIA_API_KEY).",
   );
 }

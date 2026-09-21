@@ -31,7 +31,7 @@ export default function LoginPage() {
 
   return (
     <GuestRoute>
-      <AuthCard title="Return to the table" subtitle="Log in to continue your shared campaign.">
+      <AuthCard title="Welcome back" subtitle="Log in to run interview and group-discussion practice sessions.">
         <form className="grid gap-4" onSubmit={onSubmit}>
           <AuthField
             id="email"
@@ -62,7 +62,7 @@ export default function LoginPage() {
           </Button>
         </form>
         <p className="mt-5 text-center text-sm text-muted-foreground">
-          New adventurer?{" "}
+          New here?{" "}
           <Link className="font-semibold text-primary hover:text-primary/80" href="/auth/register">
             Create an account
           </Link>

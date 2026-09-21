@@ -3,17 +3,18 @@
 @tailwind utilities;
 
 :root {
-  --background: 220 24% 8%;
-  --foreground: 39 45% 92%;
-  --card: 222 22% 11%;
-  --card-foreground: 39 45% 92%;
-  --muted: 219 18% 18%;
-  --muted-foreground: 42 16% 66%;
-  --border: 218 17% 22%;
-  --primary: 38 86% 62%;
-  --primary-foreground: 220 24% 8%;
-  --accent: 162 42% 45%;
-  --accent-foreground: 220 24% 8%;
+  /* Professional slate + indigo palette. */
+  --background: 222 47% 8%;
+  --foreground: 210 40% 96%;
+  --card: 222 40% 12%;
+  --card-foreground: 210 40% 96%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+  --border: 217 30% 22%;
+  --primary: 243 75% 62%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 160 84% 44%;
+  --accent-foreground: 222 47% 8%;
 }
 
 * {
@@ -23,8 +24,18 @@
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 20% 0%, rgba(224, 166, 83, 0.14), transparent 32rem),
-    radial-gradient(circle at 85% 10%, rgba(70, 168, 146, 0.12), transparent 30rem),
+    radial-gradient(circle at 15% -5%, rgba(99, 102, 241, 0.16), transparent 34rem),
+    radial-gradient(circle at 90% 0%, rgba(16, 185, 129, 0.08), transparent 30rem),
     hsl(var(--background));
   color: hsl(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin, unobtrusive scrollbars for the transcript panels. */
+.scroll-slim::-webkit-scrollbar {
+  width: 8px;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
 }

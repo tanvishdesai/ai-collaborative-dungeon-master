@@ -2,32 +2,10 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 
-const monster = v.object({
+const competencyScore = v.object({
   name: v.string(),
-  health: v.number(),
-  maxHealth: v.number(),
-  damage: v.number(),
-  defense: v.number(),
-  xp: v.number(),
-  gold: v.number(),
-});
-
-const sceneNpc = v.object({
-  name: v.string(),
-  type: v.string(),
-  health: v.number(),
-  status: v.string(),
-  dialogue: v.string(),
-});
-
-const sceneObject = v.object({
-  name: v.string(),
-  type: v.string(),
-  status: v.string(),
-  items: v.optional(v.array(v.string())),
-  gold: v.optional(v.number()),
-  requires: v.optional(v.string()),
-  leadsTo: v.optional(v.string()),
+  score: v.number(), // 1-5
+  justification: v.string(),
 });
 
 export default defineSchema({
@@ -41,173 +19,138 @@ export default defineSchema({
     .index("email", ["email"])
     .index("by_username", ["username"]),
 
-  rooms: defineTable({
+  // A practice session: a panel interview or a group discussion.
+  sessions: defineTable({
     code: v.string(),
     hostUserId: v.id("users"),
-    status: v.union(v.literal("waiting"), v.literal("playing")),
+    status: v.union(
+      v.literal("waiting"),
+      v.literal("active"),
+      v.literal("completed"),
+    ),
+    mode: v.union(
+      v.literal("panel_interview"),
+      v.literal("group_discussion"),
+    ),
+    targetRole: v.string(),
+    topic: v.string(), // GD topic, or interview focus note
+    difficulty: v.union(
+      v.literal("easy"),
+      v.literal("medium"),
+      v.literal("hard"),
+    ),
+    questionCount: v.number(), // interview: # of questions; GD: # of rounds
   }).index("by_code", ["code"]),
 
-  roomPlayers: defineTable({
-    roomId: v.id("rooms"),
+  participants: defineTable({
+    sessionId: v.id("sessions"),
     userId: v.id("users"),
-    role: v.union(v.literal("HOST"), v.literal("PLAYER")),
+    role: v.union(v.literal("HOST"), v.literal("MEMBER")),
+    seat: v.union(
+      v.literal("candidate"), // interview: the person being interviewed
+      v.literal("discussant"), // GD: an active participant
+      v.literal("observer"), // watches live, not scored
+    ),
     isConnected: v.boolean(),
     isReady: v.boolean(),
   })
-    .index("by_room", ["roomId"])
-    .index("by_room_and_user", ["roomId", "userId"]),
+    .index("by_session", ["sessionId"])
+    .index("by_session_and_user", ["sessionId", "userId"]),
 
-  characters: defineTable({
+  profiles: defineTable({
     userId: v.id("users"),
-    roomId: v.id("rooms"),
-    characterName: v.string(),
-    characterClass: v.union(
-      v.literal("Warrior"),
-      v.literal("Mage"),
-      v.literal("Archer"),
-      v.literal("Rogue"),
-      v.literal("Healer"),
-    ),
+    sessionId: v.id("sessions"),
+    displayName: v.string(),
+    targetRole: v.string(),
+    experienceLevel: v.string(),
+    background: v.string(), // short "resume summary" the interviewer can use
     avatar: v.string(),
-    level: v.number(),
-    experience: v.number(),
-    health: v.number(),
-    strength: v.number(),
-    defense: v.number(),
-    currentHealth: v.number(),
-    gold: v.number(),
-    readyForGame: v.boolean(),
-    // Deprecated stats kept optional only so existing character rows from the
-    // old schema still validate during the push. Nothing reads or writes them.
-    // After running `npx convex run migrations:dropDeprecatedCharacterFields`
-    // to strip them from old rows, these lines can be deleted for good.
-    mana: v.optional(v.number()),
-    currentMana: v.optional(v.number()),
-    intelligence: v.optional(v.number()),
-    agility: v.optional(v.number()),
-    luck: v.optional(v.number()),
+    ready: v.boolean(),
   })
-    .index("by_room_and_user", ["roomId", "userId"])
-    .index("by_room_and_name", ["roomId", "characterName"]),
+    .index("by_session", ["sessionId"])
+    .index("by_session_and_user", ["sessionId", "userId"])
+    .index("by_session_and_name", ["sessionId", "displayName"]),
 
-  gameStates: defineTable({
-    roomId: v.id("rooms"),
-    currentLocationId: v.optional(v.id("locations")),
-    currentLocation: v.string(),
-    currentTime: v.string(),
-    weather: v.string(),
-    currentQuest: v.string(),
-    activeNpcs: v.array(sceneNpc),
-    activeMonsters: v.array(monster),
-    objects: v.array(sceneObject),
-    inventory: v.object({
-      party: v.array(v.string()),
-    }),
-    worldFlags: v.object({
-      visitedLocations: v.array(v.string()),
-      completedQuests: v.array(v.string()),
-      killedMonsters: v.array(v.string()),
-      openedChests: v.array(v.string()),
-      destroyedObjects: v.array(v.string()),
-      npcRelationships: v.record(v.string(), v.number()),
-    }),
-    turnIndex: v.number(),
-    turnStage: v.union(
-      v.literal("player"),
-      v.literal("enemy"),
-      v.literal("world"),
-    ),
-    threatLevel: v.optional(v.number()),
-  }).index("by_room", ["roomId"]),
-
-  gameEvents: defineTable({
-    roomId: v.id("rooms"),
-    eventType: v.string(),
-    details: v.any(),
-  }).index("by_room", ["roomId"]),
-
-  playerActions: defineTable({
-    roomId: v.id("rooms"),
-    userId: v.id("users"),
-    actionText: v.string(),
-    resolvedStatus: v.union(
-      v.literal("success"),
-      v.literal("failed"),
-      v.literal("rejected"),
-    ),
-    outcome: v.string(),
-  }).index("by_room", ["roomId"]),
-
-  storyHistory: defineTable({
-    roomId: v.id("rooms"),
-    entryText: v.string(),
-    suggestedActions: v.optional(v.array(v.string())),
-  }).index("by_room", ["roomId"]),
-
-  npcs: defineTable({
-    roomId: v.id("rooms"),
-    locationId: v.optional(v.id("locations")),
+  // AI interviewer / moderator personas seeded per session.
+  personas: defineTable({
+    sessionId: v.id("sessions"),
     name: v.string(),
-    race: v.string(),
-    profession: v.string(),
+    personaRole: v.string(),
     personality: v.string(),
+    focusAreas: v.string(),
+    strictness: v.number(),
+    avatar: v.string(),
     mood: v.string(),
-    inventory: v.any(),
-    relationships: v.record(v.string(), v.number()),
-    dailySchedule: v.string(),
     goals: v.string(),
-  }).index("by_room", ["roomId"]),
+  }).index("by_session", ["sessionId"]),
 
-  npcMemories: defineTable({
-    npcId: v.id("npcs"),
-    characterName: v.string(),
-    playerMessage: v.string(),
-    npcResponse: v.string(),
-    rumor: v.optional(v.string()),
+  // Per-participant memory: lets an interviewer reference & probe earlier answers.
+  personaMemories: defineTable({
+    personaId: v.id("personas"),
+    participantName: v.string(),
+    question: v.string(),
+    answer: v.string(),
   })
-    .index("by_npc", ["npcId"])
-    .index("by_npc_and_character", ["npcId", "characterName"]),
+    .index("by_persona", ["personaId"])
+    .index("by_persona_and_participant", ["personaId", "participantName"]),
 
-  biomes: defineTable({
-    name: v.string(),
-    description: v.string(),
-  }).index("by_name", ["name"]),
+  sessionState: defineTable({
+    sessionId: v.id("sessions"),
+    phase: v.union(
+      v.literal("awaiting_answer"), // waiting for the human to respond
+      v.literal("generating"), // AI is producing the next question/prompt
+      v.literal("complete"), // session over, report(s) available
+    ),
+    currentPersonaId: v.optional(v.id("personas")),
+    currentQuestion: v.string(),
+    currentSpeakerName: v.optional(v.string()), // whom the panel addressed / GD nudge
+    questionIndex: v.number(),
+    totalQuestions: v.number(),
+    difficultyLevel: v.number(), // escalates 1..3 across the session
+    askedCompetencies: v.array(v.string()), // coverage tracking (Tier-B metric)
+    turnIndex: v.number(),
+  }).index("by_session", ["sessionId"]),
 
-  regions: defineTable({
-    roomId: v.id("rooms"),
-    name: v.string(),
-    description: v.string(),
-  }).index("by_room", ["roomId"]),
+  transcript: defineTable({
+    sessionId: v.id("sessions"),
+    kind: v.union(
+      v.literal("question"),
+      v.literal("answer"),
+      v.literal("system"),
+      v.literal("moderator"),
+    ),
+    speakerName: v.string(),
+    speakerRole: v.optional(v.string()),
+    text: v.string(),
+    competency: v.optional(v.string()),
+  }).index("by_session", ["sessionId"]),
 
-  locations: defineTable({
-    roomId: v.id("rooms"),
-    regionId: v.optional(v.id("regions")),
-    biomeId: v.optional(v.id("biomes")),
-    name: v.string(),
-    description: v.string(),
-    biome: v.string(),
-    connectedLocations: v.array(v.id("locations")),
-    npcList: v.array(v.object({ name: v.string(), dialogue: v.string() })),
-    monsterList: v.array(monster),
-    lootTable: v.object({ gold: v.number(), items: v.array(v.string()) }),
-    weather: v.string(),
-    dangerLevel: v.number(),
-  }).index("by_room", ["roomId"]),
+  responses: defineTable({
+    sessionId: v.id("sessions"),
+    userId: v.id("users"),
+    participantName: v.string(),
+    questionText: v.string(),
+    answerText: v.string(),
+    wordCount: v.number(),
+  }).index("by_session", ["sessionId"]),
 
-  buildings: defineTable({
-    locationId: v.id("locations"),
-    name: v.string(),
-    type: v.string(),
-    description: v.string(),
-    npcList: v.array(v.object({ name: v.string(), dialogue: v.string() })),
-    inventory: v.any(),
-  }).index("by_location", ["locationId"]),
-
-  worldObjects: defineTable({
-    locationId: v.id("locations"),
-    name: v.string(),
-    type: v.string(),
-    status: v.string(),
-    details: v.any(),
-  }).index("by_location", ["locationId"]),
+  feedbackReports: defineTable({
+    sessionId: v.id("sessions"),
+    userId: v.id("users"),
+    participantName: v.string(),
+    overallScore: v.number(), // 0-100
+    competencies: v.array(competencyScore),
+    strengths: v.array(v.string()),
+    improvements: v.array(v.string()),
+    summary: v.string(),
+    // Deterministic (Tier-B) metrics computed by the engine, not the LLM.
+    metrics: v.object({
+      questionsAnswered: v.number(),
+      competenciesCovered: v.number(),
+      totalCompetencies: v.number(),
+      avgAnswerWords: v.number(),
+    }),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_session_and_user", ["sessionId", "userId"]),
 });

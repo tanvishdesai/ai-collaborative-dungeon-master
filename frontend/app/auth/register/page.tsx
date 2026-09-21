@@ -32,7 +32,7 @@ export default function RegisterPage() {
 
   return (
     <GuestRoute>
-      <AuthCard title="Create your account" subtitle="Your identity persists across rooms, stories, and campaigns.">
+      <AuthCard title="Create your account" subtitle="Track your practice sessions and progress over time.">
         <form className="grid gap-4" onSubmit={onSubmit}>
           <AuthField
             id="email"

@@ -12,21 +12,19 @@ import type * as ai from "../ai.js";
 import type * as aiHelpers from "../aiHelpers.js";
 import type * as aiProviders from "../aiProviders.js";
 import type * as auth from "../auth.js";
-import type * as characters from "../characters.js";
-import type * as gameEngine from "../gameEngine.js";
 import type * as http from "../http.js";
 import type * as lib_authHelpers from "../lib/authHelpers.js";
 import type * as lib_cascadeDelete from "../lib/cascadeDelete.js";
-import type * as lib_classPresets from "../lib/classPresets.js";
-import type * as lib_sceneHelpers from "../lib/sceneHelpers.js";
-import type * as locations from "../locations.js";
-import type * as migrations from "../migrations.js";
-import type * as npcs from "../npcs.js";
+import type * as lib_rolePresets from "../lib/rolePresets.js";
+import type * as personas from "../personas.js";
+import type * as profiles from "../profiles.js";
 import type * as promptBuilder from "../promptBuilder.js";
-import type * as rooms from "../rooms.js";
-import type * as story from "../story.js";
+import type * as reports from "../reports.js";
+import type * as scenarioSeeder from "../scenarioSeeder.js";
+import type * as sessionEngine from "../sessionEngine.js";
+import type * as sessions from "../sessions.js";
+import type * as transcript from "../transcript.js";
 import type * as users from "../users.js";
-import type * as worldGenerator from "../worldGenerator.js";
 
 import type {
   ApiFromModules,
@@ -39,21 +37,19 @@ declare const fullApi: ApiFromModules<{
   aiHelpers: typeof aiHelpers;
   aiProviders: typeof aiProviders;
   auth: typeof auth;
-  characters: typeof characters;
-  gameEngine: typeof gameEngine;
   http: typeof http;
   "lib/authHelpers": typeof lib_authHelpers;
   "lib/cascadeDelete": typeof lib_cascadeDelete;
-  "lib/classPresets": typeof lib_classPresets;
-  "lib/sceneHelpers": typeof lib_sceneHelpers;
-  locations: typeof locations;
-  migrations: typeof migrations;
-  npcs: typeof npcs;
+  "lib/rolePresets": typeof lib_rolePresets;
+  personas: typeof personas;
+  profiles: typeof profiles;
   promptBuilder: typeof promptBuilder;
-  rooms: typeof rooms;
-  story: typeof story;
+  reports: typeof reports;
+  scenarioSeeder: typeof scenarioSeeder;
+  sessionEngine: typeof sessionEngine;
+  sessions: typeof sessions;
+  transcript: typeof transcript;
   users: typeof users;
-  worldGenerator: typeof worldGenerator;
 }>;
 
 /**

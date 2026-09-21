@@ -3,12 +3,14 @@
 import {
   AlertCircle,
   ArrowLeftRight,
+  Briefcase,
   Check,
   CheckCircle2,
   Copy,
   Crown,
   Loader2,
   LogOut,
+  MessagesSquare,
   Play,
   Trash2,
   UserMinus,
@@ -22,288 +24,335 @@ import { api } from "@/convex/_generated/api";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { Button } from "@/components/ui/button";
 import { authErrorMessage, useAuth } from "@/hooks/use-auth";
-import CharacterCreation, { AVATARS } from "@/components/game/character-creation";
+import ProfileSetup, { AVATARS } from "@/components/game/profile-setup";
 
-function getAvatarColor(username: string) {
-  const colors = [
-    "from-pink-500 to-rose-500",
-    "from-purple-500 to-indigo-500",
-    "from-blue-500 to-cyan-500",
-    "from-green-500 to-teal-500",
-    "from-yellow-500 to-amber-500",
-    "from-orange-500 to-red-500",
-  ];
-  let hash = 0;
-  for (let i = 0; i < username.length; i++) {
-    hash = username.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
+function seatLabel(mode: string, seat: string | null | undefined) {
+  if (seat === "candidate") return "Candidate";
+  if (seat === "discussant") return "Participant";
+  if (seat === "observer") return "Observer";
+  return mode === "panel_interview" ? "Observer" : "Participant";
 }
 
-function getInitials(username: string) {
-  if (!username) return "?";
-  return username.slice(0, 2).toUpperCase();
-}
-
-export default function WaitingRoomPage() {
+export default function LobbyPage() {
   return (
     <ProtectedRoute>
-      <WaitingRoom />
+      <Lobby />
     </ProtectedRoute>
   );
 }
 
-function WaitingRoom() {
+function Lobby() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
   const { logout, user } = useAuth();
-  const roomCode = params.code?.toUpperCase() ?? "";
+  const code = params.code?.toUpperCase() ?? "";
 
-  const roomData = useQuery(api.rooms.getByCode, roomCode ? { code: roomCode } : "skip");
+  const data = useQuery(api.sessions.getByCode, code ? { code } : "skip");
 
-  const toggleReadyMutation = useMutation(api.rooms.toggleReady);
-  const startGameMutation = useMutation(api.rooms.startGame);
-  const kickPlayerMutation = useMutation(api.rooms.kickPlayer);
-  const transferHostMutation = useMutation(api.rooms.transferHost);
-  const deleteRoomMutation = useMutation(api.rooms.deleteRoom);
-  const leaveRoomMutation = useMutation(api.rooms.leaveRoom);
+  const toggleReady = useMutation(api.sessions.toggleReady);
+  const startSession = useMutation(api.sessions.start);
+  const kickPlayer = useMutation(api.sessions.kickPlayer);
+  const transferHost = useMutation(api.sessions.transferHost);
+  const deleteSession = useMutation(api.sessions.deleteSession);
+  const leave = useMutation(api.sessions.leave);
 
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [isActionPending, setIsActionPending] = useState(false);
+  const [pending, setPending] = useState(false);
 
-  const isLoading = roomData === undefined;
+  const isLoading = data === undefined;
 
   useEffect(() => {
     if (notice) {
-      const timer = setTimeout(() => setNotice(null), 5000);
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => setNotice(null), 5000);
+      return () => clearTimeout(t);
     }
   }, [notice]);
 
   useEffect(() => {
-    if (!roomData) return;
-
-    if (roomData.room.status === "playing") {
-      router.replace(`/rooms/${roomData.room.code}/play`);
+    if (!data) return;
+    if (data.session.status !== "waiting") {
+      router.replace(`/rooms/${data.session.code}/play`);
       return;
     }
-
-    const createdCode = window.sessionStorage.getItem("room-create-success");
-    const joinedCode = window.sessionStorage.getItem("room-join-success");
-    if (createdCode === roomData.room.code) {
-      setNotice(`Room ${roomData.room.code} created successfully.`);
-      window.sessionStorage.removeItem("room-create-success");
+    const created = window.sessionStorage.getItem("session-create-success");
+    if (created === data.session.code) {
+      setNotice(
+        data.session.mode === "group_discussion"
+          ? `Session created. Share code ${data.session.code} to invite participants.`
+          : "Session created. Set up your profile and start when ready.",
+      );
+      window.sessionStorage.removeItem("session-create-success");
     }
-    if (joinedCode === roomData.room.code) {
-      setNotice(`Joined room ${roomData.room.code}.`);
-      window.sessionStorage.removeItem("room-join-success");
-    }
-  }, [roomData, router]);
+  }, [data, router]);
 
-  async function copyRoomCode() {
-    if (!roomData) return;
-    await navigator.clipboard.writeText(roomData.room.code);
+  async function copyCode() {
+    if (!data) return;
+    await navigator.clipboard.writeText(data.session.code);
     setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    setTimeout(() => setCopied(false), 1600);
   }
 
-  async function performAction(actionFn: () => Promise<unknown>, errorMessage: string) {
-    if (isActionPending) return;
-    setIsActionPending(true);
+  async function run(fn: () => Promise<unknown>, fallback: string) {
+    if (pending) return;
+    setPending(true);
     setError(null);
     try {
-      await actionFn();
+      await fn();
     } catch (err) {
-      setError(authErrorMessage(err) || errorMessage);
+      setError(authErrorMessage(err) || fallback);
     } finally {
-      setIsActionPending(false);
+      setPending(false);
     }
   }
 
-  const isHost = roomData?.currentUserRole === "HOST";
-  const myPlayerInfo = useMemo(
-    () => roomData?.players.find((p) => p.user?.id === user?.id),
-    [roomData?.players, user?.id],
+  const isHost = data?.currentUserRole === "HOST";
+  const me = useMemo(
+    () => data?.players.find((p) => p.user?.id === user?.id),
+    [data?.players, user?.id],
   );
-  const isReady = myPlayerInfo?.isReady ?? false;
-  const myCharacter = myPlayerInfo?.character;
-  const hasCreatedCharacter = !!myCharacter;
+  const hasProfile = !!me?.profile;
+  const isReady = me?.isReady ?? false;
 
-  const canStartGame =
-    roomData &&
-    roomData.players.every((p) => {
-      const hasChar = !!p.character;
-      const playerReady = p.role === "HOST" || p.isReady;
-      return hasChar && playerReady;
-    });
+  const canStart =
+    data &&
+    data.players.every((p) => !!p.profile && (p.role === "HOST" || p.isReady)) &&
+    (data.session.mode === "panel_interview" ||
+      data.players.filter((p) => p.seat === "discussant").length >= 2);
+
+  const mode = data?.session.mode ?? "panel_interview";
+  const isInterview = mode === "panel_interview";
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
       <header className="flex flex-col gap-4 border-b border-border pb-5 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary">
-            Signed in as {user?.username}
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-normal text-foreground md:text-4xl">Waiting Room</h1>
+          <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-primary">
+            {isInterview ? <Briefcase className="h-4 w-4" /> : <MessagesSquare className="h-4 w-4" />}
+            {isInterview ? "Panel Interview" : "Group Discussion"} · Lobby
+          </div>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
+            {data?.session.mode === "group_discussion"
+              ? data?.session.topic || "Group Discussion"
+              : data?.session.targetRole || "Interview"}
+          </h1>
         </div>
-        <Button variant="secondary" onClick={logout}>
+        <Button variant="ghost" onClick={logout}>
           <LogOut className="h-4 w-4" />
           Logout
         </Button>
       </header>
 
       {isLoading && (
-        <section className="flex flex-1 items-center justify-center rounded-lg border border-border bg-card/80 p-8">
-          <div className="flex items-center gap-3 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            Loading room...
-          </div>
-        </section>
+        <div className="flex flex-1 items-center justify-center rounded-xl border border-border bg-card/60 p-10 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" />
+          Loading session...
+        </div>
       )}
 
-      {!isLoading && roomData === null && (
-        <section className="rounded-lg border border-red-400/40 bg-red-500/10 p-5 text-red-100">
+      {!isLoading && data === null && (
+        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-5 text-red-200">
           <div className="flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-red-300" />
-            <p>Could not load the room. You may have been removed or the room no longer exists.</p>
+            <AlertCircle className="h-5 w-5" />
+            <p>Could not load this session. It may have ended or you were removed.</p>
           </div>
-        </section>
+        </div>
       )}
 
       {!isLoading && error && (
-        <section className="rounded-lg border border-red-400/40 bg-red-500/10 p-5 text-red-100">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-red-300" />
-            <p>{error}</p>
-          </div>
-        </section>
+        <div className="flex items-center gap-3 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </div>
       )}
 
-      {!isLoading && roomData && (
-        <section className="grid flex-1 gap-5 lg:grid-cols-[1fr_0.8fr]">
+      {!isLoading && data && (
+        <section className="grid flex-1 gap-6 lg:grid-cols-[1fr_0.85fr]">
           <div className="flex flex-col gap-5">
             {notice && (
-              <div className="flex items-center gap-3 rounded-md border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-foreground">
+              <div className="flex items-center gap-3 rounded-lg border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-foreground">
                 <Check className="h-4 w-4 text-accent" />
-                <span>{notice}</span>
+                {notice}
               </div>
             )}
 
-            {!hasCreatedCharacter ? (
-              <CharacterCreation roomCode={roomData.room.code} onCreated={() => setNotice("Character created!")} />
+            {!hasProfile ? (
+              <ProfileSetup
+                sessionCode={data.session.code}
+                defaultRole={isInterview ? data.session.targetRole : undefined}
+                isCandidate={data.currentUserSeat === "candidate"}
+                onCreated={() => setNotice("Profile saved.")}
+              />
+            ) : isInterview ? (
+              /* ── Panel Interview: no invite code, just details + start ── */
+              <div className="rounded-xl border border-border bg-card/80 p-6 shadow-glow">
+                <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  <Detail label="Format" value="Panel Interview" />
+                  <Detail label="Role" value={data.session.targetRole} />
+                  <Detail label="Difficulty" value={data.session.difficulty} className="capitalize" />
+                  <Detail label="Questions" value={String(data.session.questionCount)} />
+                  <Detail label="Your role" value={seatLabel(mode, data.currentUserSeat)} />
+                </dl>
+
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  {isHost ? (
+                    <>
+                      <Button
+                        onClick={() =>
+                          run(() => startSession({ code: data.session.code }), "Failed to start.")
+                        }
+                        disabled={pending || !canStart}
+                      >
+                        {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                        Start interview
+                      </Button>
+                      <Button
+                        variant="danger"
+                        onClick={() =>
+                          run(async () => {
+                            await deleteSession({ code: data.session.code });
+                            router.push("/");
+                          }, "Failed to delete.")
+                        }
+                        disabled={pending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant={isReady ? "secondary" : "primary"}
+                        onClick={() =>
+                          run(() => toggleReady({ code: data.session.code }), "Failed to update.")
+                        }
+                        disabled={pending}
+                      >
+                        {isReady ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                        {isReady ? "Not ready" : "I'm ready"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() =>
+                          run(async () => {
+                            await leave({ code: data.session.code });
+                            router.push("/");
+                          }, "Failed to leave.")
+                        }
+                        disabled={pending}
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Leave
+                      </Button>
+                    </>
+                  )}
+
+                  {/* Code tucked away — only useful for inviting observers */}
+                  <details className="ml-auto">
+                    <summary className="cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground">
+                      Invite an observer
+                    </summary>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="font-mono text-sm font-semibold tracking-widest text-primary">
+                        {data.session.code}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={copyCode}
+                        className="rounded border border-border bg-muted px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {copied ? "Copied" : "Copy"}
+                      </button>
+                    </div>
+                  </details>
+                </div>
+              </div>
             ) : (
-              <div className="rounded-lg border border-border bg-card/80 p-5 shadow-glow">
+              /* ── Group Discussion: invite code is central ── */
+              <div className="rounded-xl border border-border bg-card/80 p-6 shadow-glow">
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">Room Code</p>
-                    <p className="mt-3 font-mono text-5xl font-semibold tracking-normal text-primary">
-                      {roomData.room.code}
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Invite code — share this with participants
+                    </p>
+                    <p className="mt-2 font-mono text-5xl font-bold tracking-widest text-primary">
+                      {data.session.code}
                     </p>
                   </div>
-                  <Button variant="secondary" onClick={copyRoomCode}>
+                  <Button variant="secondary" onClick={copyCode}>
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    {copied ? "Copied" : "Copy Room Code"}
+                    {copied ? "Copied" : "Copy code"}
                   </Button>
                 </div>
 
-                <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-md border border-border bg-background/60 p-4">
-                    <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
-                      <Crown className="h-4 w-4 text-primary" />
-                      Host
-                    </div>
-                    <p className="text-lg font-semibold">{roomData.host?.username ?? "Unknown"}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{roomData.host?.email}</p>
-                  </div>
-                  <div className="rounded-md border border-border bg-background/60 p-4">
-                    <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4 text-accent" />
-                      Connected Players
-                    </div>
-                    <p className="text-lg font-semibold">
-                      {roomData.players.filter((player) => player.isConnected).length}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">Waiting for the party to gather.</p>
-                  </div>
-                </div>
+                <dl className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  <Detail label="Format" value="Group Discussion" />
+                  <Detail label="Topic" value={data.session.topic || "—"} />
+                  <Detail label="Difficulty" value={data.session.difficulty} className="capitalize" />
+                  <Detail label="Rounds" value={String(data.session.questionCount)} />
+                  <Detail label="Your role" value={seatLabel(mode, data.currentUserSeat)} />
+                </dl>
 
-                <div className="mt-8 flex flex-col gap-4">
-                  <div className="flex flex-wrap gap-4">
+                <div className="mt-6 flex flex-col gap-3">
+                  <div className="flex flex-wrap gap-3">
                     {isHost ? (
                       <>
                         <Button
                           onClick={() =>
-                            performAction(
-                              () => startGameMutation({ code: roomData.room.code }),
-                              "Failed to start game.",
-                            )
+                            run(() => startSession({ code: data.session.code }), "Failed to start.")
                           }
-                          disabled={isActionPending || !canStartGame}
-                          className="bg-accent hover:bg-accent/80 font-bold"
+                          disabled={pending || !canStart}
                         >
-                          {isActionPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Play className="h-4 w-4" />
-                          )}
-                          Start Game
+                          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                          Start discussion
                         </Button>
                         <Button
-                          variant="secondary"
+                          variant="danger"
                           onClick={() =>
-                            performAction(async () => {
-                              await deleteRoomMutation({ code: roomData.room.code });
+                            run(async () => {
+                              await deleteSession({ code: data.session.code });
                               router.push("/");
-                            }, "Failed to delete room.")
+                            }, "Failed to delete.")
                           }
-                          disabled={isActionPending}
-                          className="border-red-900/50 text-red-400 hover:bg-red-500/10 hover:border-red-900 font-semibold"
+                          disabled={pending}
                         >
                           <Trash2 className="h-4 w-4" />
-                          Delete Room
+                          Delete
                         </Button>
                       </>
                     ) : (
                       <>
                         <Button
-                          onClick={() =>
-                            performAction(
-                              () => toggleReadyMutation({ code: roomData.room.code }),
-                              "Failed to toggle ready status.",
-                            )
-                          }
-                          disabled={isActionPending}
                           variant={isReady ? "secondary" : "primary"}
-                          className="font-bold"
+                          onClick={() =>
+                            run(() => toggleReady({ code: data.session.code }), "Failed to update.")
+                          }
+                          disabled={pending}
                         >
                           {isReady ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                          {isReady ? "Set Not Ready" : "Set Ready"}
+                          {isReady ? "Not ready" : "I'm ready"}
                         </Button>
                         <Button
-                          variant="secondary"
+                          variant="ghost"
                           onClick={() =>
-                            performAction(async () => {
-                              const result = await leaveRoomMutation({ code: roomData.room.code });
-                              if (result.roomDeleted) {
-                                router.push("/rooms/join");
-                              } else {
-                                router.push("/rooms/join");
-                              }
-                            }, "Failed to leave room.")
+                            run(async () => {
+                              await leave({ code: data.session.code });
+                              router.push("/");
+                            }, "Failed to leave.")
                           }
-                          disabled={isActionPending}
+                          disabled={pending}
                         >
                           <LogOut className="h-4 w-4" />
-                          Leave Room
+                          Leave
                         </Button>
                       </>
                     )}
                   </div>
-                  {isHost && !canStartGame && (
-                    <p className="text-xs text-amber-400 font-medium animate-pulse">
-                      Start Game is disabled until all players have created characters and clicked Ready.
+                  {isHost && !canStart && (
+                    <p className="text-xs font-medium text-amber-400">
+                      Need at least 2 participants, each with a profile and ready status.
                     </p>
                   )}
                 </div>
@@ -311,138 +360,80 @@ function WaitingRoom() {
             )}
           </div>
 
-          <aside className="rounded-lg border border-border bg-card/80 p-5 flex flex-col gap-5">
+          <aside className="flex flex-col gap-4 rounded-xl border border-border bg-card/80 p-5">
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5 text-accent" />
-              <h2 className="text-lg font-semibold">Players ({roomData.players.length})</h2>
+              <h2 className="text-lg font-semibold">Participants ({data.players.length})</h2>
             </div>
-            <div className="space-y-3 overflow-y-auto max-h-[75vh]">
-              {roomData.players.map((player) => {
-                const isPlayerHost = player.role === "HOST";
-                const char = player.character;
-                const charAvatar = char ? AVATARS.find((av) => av.id === char.avatar) : null;
-                const AvatarIcon = charAvatar ? charAvatar.Icon : null;
-                const username = player.user?.username ?? "Unknown";
-                const initials = getInitials(username);
-                const avatarGrad = charAvatar ? charAvatar.gradient : getAvatarColor(username);
-
+            <div className="scroll-slim flex max-h-[70vh] flex-col gap-3 overflow-y-auto pr-1">
+              {data.players.map((p) => {
+                const av = p.profile ? AVATARS.find((a) => a.id === p.profile!.avatar) : null;
+                const Icon = av?.Icon;
+                const name = p.profile?.displayName ?? p.user?.username ?? "Unknown";
                 return (
-                  <div key={player._id} className="rounded-md border border-border bg-background/60 p-4">
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br font-semibold text-white ${avatarGrad}`}
-                          >
-                            {AvatarIcon ? <AvatarIcon className="h-5 w-5 text-white" /> : initials}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-semibold text-sm sm:text-base text-foreground">
-                                {char ? char.characterName : username}
-                              </span>
-                              {char && (
-                                <span className="text-xs text-muted-foreground">({username})</span>
-                              )}
-                              {isPlayerHost && <Crown className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />}
-                            </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                                {player.role}
-                              </p>
-                              {char && (
-                                <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                                  {char.characterClass} (Lv.{char.level})
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                  <div key={p._id} className="rounded-lg border border-border bg-background/50 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br text-white ${
+                            av?.gradient ?? "from-slate-500 to-slate-700"
+                          }`}
+                        >
+                          {Icon ? <Icon className="h-5 w-5" /> : name.slice(0, 1).toUpperCase()}
                         </div>
-
-                        <div className="flex flex-col items-end gap-2 text-xs">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`rounded-full px-2.5 py-0.5 font-semibold text-[10px] sm:text-xs ${
-                                player.isReady ? "bg-accent/15 text-accent" : "bg-muted text-muted-foreground"
-                              }`}
-                            >
-                              {player.isReady ? "Ready" : "Not Ready"}
-                            </span>
-                            <span className="flex items-center gap-1.5 text-muted-foreground">
-                              <span
-                                className={`h-2.5 w-2.5 rounded-full ${
-                                  player.isConnected
-                                    ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-                                    : "bg-muted-foreground"
-                                }`}
-                                aria-hidden="true"
-                              />
-                              <span className="hidden sm:inline">
-                                {player.isConnected ? "Connected" : "Disconnected"}
-                              </span>
-                            </span>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-semibold text-foreground">{name}</span>
+                            {p.role === "HOST" && (
+                              <Crown className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                            )}
                           </div>
-
-                          {isHost && player.user?.id !== user?.id && username && (
-                            <div className="flex items-center gap-2 mt-1">
-                              <button
-                                className="h-7 px-2 inline-flex items-center justify-center rounded-md border border-border bg-muted text-xs text-muted-foreground hover:text-amber-400 hover:bg-muted/80 disabled:opacity-50 transition font-semibold"
-                                title="Transfer Host"
-                                disabled={isActionPending}
-                                onClick={() =>
-                                  performAction(
-                                    () =>
-                                      transferHostMutation({
-                                        code: roomData.room.code,
-                                        username,
-                                      }),
-                                    "Failed to transfer host.",
-                                  )
-                                }
-                              >
-                                <ArrowLeftRight className="h-3.5 w-3.5 mr-1" />
-                                Host
-                              </button>
-                              <button
-                                className="h-7 px-2 inline-flex items-center justify-center rounded-md border border-border bg-muted text-xs text-muted-foreground hover:text-red-400 hover:bg-muted/80 disabled:opacity-50 transition font-semibold"
-                                title="Kick Player"
-                                disabled={isActionPending}
-                                onClick={() =>
-                                  performAction(
-                                    () =>
-                                      kickPlayerMutation({
-                                        code: roomData.room.code,
-                                        username,
-                                      }),
-                                    "Failed to kick player.",
-                                  )
-                                }
-                              >
-                                <UserMinus className="h-3.5 w-3.5 mr-1" />
-                                Kick
-                              </button>
-                            </div>
-                          )}
+                          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                            {seatLabel(mode, p.seat)}
+                          </p>
                         </div>
                       </div>
-
-                      <div className="flex items-center justify-between border-t border-border/40 pt-2 text-[11px] sm:text-xs">
-                        <span className="flex items-center gap-1">
-                          <span
-                            className={`h-2 w-2 rounded-full ${
-                              char ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
-                            }`}
-                          />
-                          <span className="text-muted-foreground">
-                            {char ? "Created" : "Creating..."}
-                          </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                            p.isReady || p.role === "HOST"
+                              ? "bg-accent/15 text-accent"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {p.role === "HOST" ? "Host" : p.isReady ? "Ready" : "Not ready"}
                         </span>
-
-                        {char && (
-                          <span className="text-muted-foreground">
-                            HP: <span className="text-rose-400 font-semibold">{char.currentHealth}</span> | Gold:{" "}
-                            <span className="text-amber-400 font-semibold">{char.gold}g</span>
-                          </span>
+                        {isHost && p.user?.id !== user?.id && (
+                          <div className="flex gap-1.5">
+                            <button
+                              title="Make host"
+                              disabled={pending}
+                              onClick={() =>
+                                run(
+                                  () =>
+                                    transferHost({ code: data.session.code, username: p.user!.username }),
+                                  "Failed.",
+                                )
+                              }
+                              className="rounded-md border border-border bg-muted p-1.5 text-muted-foreground transition hover:text-amber-400 disabled:opacity-50"
+                            >
+                              <ArrowLeftRight className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              title="Remove"
+                              disabled={pending}
+                              onClick={() =>
+                                run(
+                                  () =>
+                                    kickPlayer({ code: data.session.code, username: p.user!.username }),
+                                  "Failed.",
+                                )
+                              }
+                              className="rounded-md border border-border bg-muted p-1.5 text-muted-foreground transition hover:text-red-400 disabled:opacity-50"
+                            >
+                              <UserMinus className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -454,5 +445,24 @@ function WaitingRoom() {
         </section>
       )}
     </main>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-background/40 px-3 py-2">
+      <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </dt>
+      <dd className={`mt-0.5 text-sm font-medium text-foreground ${className ?? ""}`}>{value}</dd>
+    </div>
   );
 }

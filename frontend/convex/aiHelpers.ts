@@ -1,176 +1,172 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalQuery, QueryCtx } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
+import { rubricFor } from "./lib/rolePresets";
 
-export const getNarrationContext = internalQuery({
-  args: { roomId: v.id("rooms"), userId: v.id("users") },
-  handler: async (ctx, { roomId, userId }) => {
-    const gameState = await ctx.db
-      .query("gameStates")
-      .withIndex("by_room", (q) => q.eq("roomId", roomId))
-      .unique();
-
-    const playerActions = await ctx.db
-      .query("playerActions")
-      .withIndex("by_room", (q) => q.eq("roomId", roomId))
-      .collect();
-    const lastAction = playerActions.sort(
-      (a, b) => b._creationTime - a._creationTime,
-    )[0];
-
-    if (!gameState || !lastAction) return null;
-
-    const characters = await ctx.db
-      .query("characters")
-      .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId))
-      .collect();
-
-    const playersList = characters.map((c) => ({
-      name: c.characterName,
-      class: c.characterClass,
-      level: c.level,
-      hp: c.currentHealth,
-      maxHp: c.health,
+async function recentTranscript(
+  ctx: QueryCtx,
+  sessionId: Id<"sessions">,
+  limit = 8,
+): Promise<Array<{ speakerName: string; speakerRole?: string; text: string }>> {
+  const entries = await ctx.db
+    .query("transcript")
+    .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+    .collect();
+  return entries
+    .filter((e) => e.kind !== "system")
+    .sort((a, b) => a._creationTime - b._creationTime)
+    .slice(-limit)
+    .map((e) => ({
+      speakerName: e.speakerName,
+      speakerRole: e.speakerRole,
+      text: e.text,
     }));
+}
 
-    const actingCharacter = characters.find((c) => c.userId === userId);
-
-    const gameEvents = await ctx.db
-      .query("gameEvents")
-      .withIndex("by_room", (q) => q.eq("roomId", roomId))
-      .collect();
-    const recentEvents = gameEvents
-      .sort((a, b) => b._creationTime - a._creationTime)
-      .slice(0, 10)
-      .map((ev) => ({ eventType: ev.eventType, details: ev.details }));
-
-    const storyEntries = await ctx.db
-      .query("storyHistory")
-      .withIndex("by_room", (q) => q.eq("roomId", roomId))
-      .collect();
-    const recentStoryEntries = storyEntries
-      .sort((a, b) => a._creationTime - b._creationTime)
-      .slice(-15);
-    // ponytail: truncating older entries instead of LLM-summarizing them is a naive
-    // token-saver; upgrade to a real rolling summary if continuity noticeably degrades.
-    const storyHistory = recentStoryEntries.map((s, i) => {
-      const isRecent = i >= recentStoryEntries.length - 5;
-      if (isRecent || s.entryText.length <= 160) return s.entryText;
-      return s.entryText.slice(0, 160).trimEnd() + "...";
-    });
-
-    const recentEventsObjs = gameEvents.sort(
-      (a, b) => b._creationTime - a._creationTime,
-    );
-
-    return {
-      gameState,
-      lastAction,
-      playersList,
-      actingCharacterName: actingCharacter?.characterName ?? "A player",
-      recentEvents,
-      storyHistory,
-      recentEventsObjs,
-    };
-  },
-});
-
-export const persistNarration = internalMutation({
-  args: {
-    roomId: v.id("rooms"),
-    entryText: v.string(),
-    suggestedActions: v.optional(v.array(v.string())),
-  },
-  handler: async (ctx, { roomId, entryText, suggestedActions }) => {
-    await ctx.db.insert("storyHistory", { roomId, entryText, suggestedActions });
-  },
-});
-
-export const getNpcTalkContext = internalQuery({
-  args: {
-    roomId: v.id("rooms"),
-    npcId: v.id("npcs"),
-    userId: v.id("users"),
-    message: v.string(),
-  },
-  handler: async (ctx, { roomId, npcId, userId, message }) => {
-    const npc = await ctx.db.get(npcId);
-    if (!npc || npc.roomId !== roomId) return null;
-
-    const character = await ctx.db
-      .query("characters")
-      .withIndex("by_room_and_user", (q) =>
-        q.eq("roomId", roomId).eq("userId", userId),
-      )
+// Context for generating the next interviewer question / moderator prompt.
+export const getQuestionContext = internalQuery({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, { sessionId }) => {
+    const session = await ctx.db.get(sessionId);
+    if (!session) return null;
+    const state = await ctx.db
+      .query("sessionState")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
       .unique();
+    if (!state || !state.currentPersonaId) return null;
+    const persona = await ctx.db.get(state.currentPersonaId);
+    if (!persona) return null;
 
-    if (!character) return null;
+    const rubric = rubricFor(session.mode);
+    const targetCompetency =
+      rubric.find((c) => !state.askedCompetencies.includes(c)) ??
+      rubric[state.questionIndex % rubric.length] ??
+      "Communication";
 
-    const charName = character.characterName;
-    const currentRelationship = npc.relationships[charName] ?? 50;
-
-    const memories = await ctx.db
-      .query("npcMemories")
-      .withIndex("by_npc_and_character", (q) =>
-        q.eq("npcId", npcId).eq("characterName", charName),
-      )
+    const participants = await ctx.db
+      .query("participants")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
       .collect();
 
-    const recentMemories = memories
-      .sort((a, b) => a._creationTime - b._creationTime)
-      .slice(-10);
+    const profiles = await ctx.db
+      .query("profiles")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .collect();
+
+    const candidateParticipant = participants.find((p) => p.seat === "candidate");
+    const candidateProfile = candidateParticipant
+      ? profiles.find((p) => p.userId === candidateParticipant.userId)
+      : undefined;
+
+    const candidate = candidateProfile
+      ? {
+          displayName: candidateProfile.displayName,
+          targetRole: candidateProfile.targetRole,
+          experienceLevel: candidateProfile.experienceLevel,
+          background: candidateProfile.background,
+        }
+      : null;
+
+    const discussants = profiles
+      .filter((p) =>
+        participants.some((pp) => pp.userId === p.userId && pp.seat === "discussant"),
+      )
+      .map((p) => p.displayName);
+
+    let personaMemory: Array<{ question: string; answer: string }> = [];
+    if (candidate) {
+      const mems = await ctx.db
+        .query("personaMemories")
+        .withIndex("by_persona_and_participant", (q) =>
+          q.eq("personaId", persona._id).eq("participantName", candidate.displayName),
+        )
+        .collect();
+      personaMemory = mems
+        .sort((a, b) => a._creationTime - b._creationTime)
+        .slice(-5)
+        .map((m) => ({ question: m.question, answer: m.answer }));
+    }
 
     return {
-      npc,
-      character,
-      charName,
-      currentRelationship,
-      recentMemories,
-      message,
-      roomId,
+      mode: session.mode,
+      personaId: persona._id,
+      persona: {
+        name: persona.name,
+        personaRole: persona.personaRole,
+        personality: persona.personality,
+        focusAreas: persona.focusAreas,
+        strictness: persona.strictness,
+      },
+      session: {
+        targetRole: session.targetRole,
+        difficulty: session.difficulty,
+        topic: session.topic,
+      },
+      state: {
+        questionIndex: state.questionIndex,
+        totalQuestions: state.totalQuestions,
+        difficultyLevel: state.difficultyLevel,
+      },
+      targetCompetency,
+      candidate,
+      discussants,
+      recentTranscript: await recentTranscript(ctx, sessionId),
+      personaMemory,
     };
   },
 });
 
-export const persistNpcTalk = internalMutation({
-  args: {
-    npcId: v.id("npcs"),
-    roomId: v.id("rooms"),
-    characterName: v.string(),
-    playerMessage: v.string(),
-    npcResponse: v.string(),
-    rumor: v.optional(v.string()),
-    newRelationship: v.number(),
-    newMood: v.string(),
-    relationships: v.record(v.string(), v.number()),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.npcId, {
-      mood: args.newMood,
-      relationships: args.relationships,
+// Context for generating the end-of-session feedback report(s).
+export const getFeedbackContext = internalQuery({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, { sessionId }) => {
+    const session = await ctx.db.get(sessionId);
+    if (!session) return null;
+
+    const rubric = rubricFor(session.mode);
+    const state = await ctx.db
+      .query("sessionState")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .unique();
+    const askedCovered = state
+      ? rubric.filter((c) => state.askedCompetencies.includes(c)).length
+      : 0;
+
+    const participants = await ctx.db
+      .query("participants")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .collect();
+    const scoredSeat = session.mode === "panel_interview" ? "candidate" : "discussant";
+    const scored = participants.filter((p) => p.seat === scoredSeat);
+
+    const profiles = await ctx.db
+      .query("profiles")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .collect();
+
+    const responses = await ctx.db
+      .query("responses")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .collect();
+
+    const people = scored.map((p) => {
+      const profile = profiles.find((pr) => pr.userId === p.userId);
+      const mine = responses
+        .filter((r) => r.userId === p.userId)
+        .sort((a, b) => a._creationTime - b._creationTime);
+      return {
+        userId: p.userId,
+        participantName: profile?.displayName ?? "Participant",
+        exchanges: mine.map((r) => ({ prompt: r.questionText, answer: r.answerText })),
+      };
     });
 
-    await ctx.db.insert("npcMemories", {
-      npcId: args.npcId,
-      characterName: args.characterName,
-      playerMessage: args.playerMessage,
-      npcResponse: args.npcResponse,
-      rumor: args.rumor || undefined,
-    });
-
-    const npc = await ctx.db.get(args.npcId);
-    const storySummary = `${args.characterName} talked to NPC ${npc!.name}. Dialogue: "${args.npcResponse}". (Mood: ${args.newMood}, Relationship: ${args.newRelationship}/100)`;
-
-    await ctx.db.insert("storyHistory", {
-      roomId: args.roomId,
-      entryText: storySummary,
-    });
-  },
-});
-
-export const getAuthenticatedUserId = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    return await getAuthUserId(ctx);
+    return {
+      mode: session.mode,
+      session: { targetRole: session.targetRole, topic: session.topic },
+      competencies: rubric,
+      competenciesCovered: session.mode === "panel_interview" ? askedCovered : rubric.length,
+      people,
+    };
   },
 });

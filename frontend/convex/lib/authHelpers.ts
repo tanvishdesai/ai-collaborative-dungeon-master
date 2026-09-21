@@ -16,53 +16,53 @@ export async function requireUser(ctx: QueryCtx | MutationCtx) {
   return user;
 }
 
-export async function requireRoomPlayer(
+export async function requireSessionMember(
   ctx: QueryCtx | MutationCtx,
-  roomId: Id<"rooms">,
+  sessionId: Id<"sessions">,
 ) {
   const user = await requireUser(ctx);
-  const room = await ctx.db.get(roomId);
-  if (!room) throw new ConvexError("Room not found.");
+  const session = await ctx.db.get(sessionId);
+  if (!session) throw new ConvexError("Session not found.");
 
   const membership = await ctx.db
-    .query("roomPlayers")
-    .withIndex("by_room_and_user", (q) =>
-      q.eq("roomId", roomId).eq("userId", user._id),
+    .query("participants")
+    .withIndex("by_session_and_user", (q) =>
+      q.eq("sessionId", sessionId).eq("userId", user._id),
     )
     .unique();
 
   if (!membership) {
-    throw new ConvexError("You are not a player in this room.");
+    throw new ConvexError("You are not a participant in this session.");
   }
 
-  return { user, room, membership };
+  return { user, session, membership };
 }
 
-export async function requireRoomByCode(
+export async function requireSessionByCode(
   ctx: QueryCtx | MutationCtx,
   code: string,
 ) {
   const user = await requireUser(ctx);
   const normalizedCode = code.trim().toUpperCase();
-  const room = await ctx.db
-    .query("rooms")
+  const session = await ctx.db
+    .query("sessions")
     .withIndex("by_code", (q) => q.eq("code", normalizedCode))
     .unique();
 
-  if (!room) throw new ConvexError("Room not found.");
+  if (!session) throw new ConvexError("Session not found.");
 
   const membership = await ctx.db
-    .query("roomPlayers")
-    .withIndex("by_room_and_user", (q) =>
-      q.eq("roomId", room._id).eq("userId", user._id),
+    .query("participants")
+    .withIndex("by_session_and_user", (q) =>
+      q.eq("sessionId", session._id).eq("userId", user._id),
     )
     .unique();
 
   if (!membership) {
-    throw new ConvexError("You are not a player in this room.");
+    throw new ConvexError("You are not a participant in this session.");
   }
 
-  return { user, room, membership };
+  return { user, session, membership };
 }
 
 export type AuthUser = Doc<"users">;

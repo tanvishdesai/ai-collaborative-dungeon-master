@@ -5,9 +5,9 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI Collaborative Dungeon Master",
+  title: "Abhyaas — AI Placement Practice",
   description:
-    "A real-time multiplayer fantasy storytelling game guided by an AI Dungeon Master.",
+    "Practice campus placement panel interviews and group discussions with an AI panel that remembers and probes your answers, then get a scored feedback report.",
 };
 
 export default function RootLayout({

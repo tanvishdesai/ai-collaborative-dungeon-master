@@ -19,7 +19,7 @@ const config: Config = {
         "card-foreground": "hsl(var(--card-foreground))"
       },
       boxShadow: {
-        glow: "0 0 36px rgba(224, 166, 83, 0.22)"
+        glow: "0 1px 3px rgba(0, 0, 0, 0.3), 0 8px 30px rgba(79, 70, 229, 0.10)"
       }
     }
   },
