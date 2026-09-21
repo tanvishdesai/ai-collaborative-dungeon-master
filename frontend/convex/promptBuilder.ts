@@ -20,7 +20,7 @@ function renderTranscript(lines: TranscriptLine[]): string {
 
 export type InterviewerPromptInput = {
   persona: { name: string; personaRole: string; personality: string; focusAreas: string; strictness: number };
-  candidate: { displayName: string; targetRole: string; experienceLevel: string; background: string };
+  candidate: { displayName: string; targetRole: string; experienceLevel: string; background: string; resumeText?: string };
   session: { targetRole: string; difficulty: string };
   targetCompetency: string;
   difficultyLevel: number;
@@ -59,7 +59,12 @@ Your strictness (1 gentle, 5 tough): ${persona.strictness}.
 
 You are interviewing ${candidate.displayName}, applying for the role of "${session.targetRole || candidate.targetRole}".
 Candidate background: experience level = ${candidate.experienceLevel}. Notes: ${candidate.background || "None provided."}
-
+${candidate.resumeText ? `
+The candidate uploaded their résumé. Ground your questions in its real specifics — named projects, skills, tools, companies, achievements, and any gaps. Prefer probing what's actually written here over generic questions:
+"""
+${candidate.resumeText}
+"""
+` : ""}
 This is question ${questionIndex + 1} of ${totalQuestions}. Session difficulty: ${session.difficulty}.
 ${DIFFICULTY_GUIDANCE[difficultyLevel] ?? DIFFICULTY_GUIDANCE[2]}
 The competency this question should assess: ${targetCompetency}.

@@ -64,6 +64,7 @@ export const getQuestionContext = internalQuery({
           targetRole: candidateProfile.targetRole,
           experienceLevel: candidateProfile.experienceLevel,
           background: candidateProfile.background,
+          resumeText: candidateProfile.resumeText,
         }
       : null;
 

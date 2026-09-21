@@ -64,6 +64,7 @@ export default defineSchema({
     targetRole: v.string(),
     experienceLevel: v.string(),
     background: v.string(), // short "resume summary" the interviewer can use
+    resumeText: v.optional(v.string()), // full résumé text (from an uploaded file) the interviewer grounds questions in
     avatar: v.string(),
     ready: v.boolean(),
   })

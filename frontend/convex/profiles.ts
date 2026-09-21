@@ -9,6 +9,7 @@ export const create = mutation({
     targetRole: v.string(),
     experienceLevel: v.string(),
     background: v.string(),
+    resumeText: v.optional(v.string()),
     avatar: v.string(),
   },
   handler: async (ctx, args) => {
@@ -42,6 +43,7 @@ export const create = mutation({
       targetRole: args.targetRole,
       experienceLevel: args.experienceLevel,
       background: args.background.trim(),
+      resumeText: args.resumeText?.trim().slice(0, 8000) || undefined,
       avatar: args.avatar,
       ready: false,
     });
