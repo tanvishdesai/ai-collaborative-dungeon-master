@@ -7,7 +7,7 @@ import { AuthCard } from "@/components/auth/auth-card";
 import { AuthField } from "@/components/auth/auth-field";
 import { GuestRoute } from "@/components/auth/guest-route";
 import { Button } from "@/components/ui/button";
-import { authErrorMessage, useAuth } from "@/hooks/use-auth";
+import { authErrorMessage, useAuth, validateRegistration } from "@/hooks/use-auth";
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -20,6 +20,13 @@ export default function RegisterPage() {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    const validationError = validateRegistration({ email, username, password });
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setIsPending(true);
     try {
       await register({ email, username, password });
@@ -65,6 +72,9 @@ export default function RegisterPage() {
             minLength={8}
             required
           />
+          <p className="-mt-2 text-xs text-muted-foreground">
+            At least 8 characters, including one letter and one number.
+          </p>
           {error ? (
             <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
               {error}

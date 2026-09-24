@@ -3,6 +3,7 @@ export interface AuthUser {
   email: string;
   username: string;
   is_active: boolean;
+  is_admin: boolean;
 }
 
 export interface RegisterPayload {

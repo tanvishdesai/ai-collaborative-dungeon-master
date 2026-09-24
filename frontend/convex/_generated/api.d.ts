@@ -8,11 +8,13 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as ai from "../ai.js";
 import type * as aiHelpers from "../aiHelpers.js";
 import type * as aiProviders from "../aiProviders.js";
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
+import type * as lib_admin from "../lib/admin.js";
 import type * as lib_authHelpers from "../lib/authHelpers.js";
 import type * as lib_cascadeDelete from "../lib/cascadeDelete.js";
 import type * as lib_rolePresets from "../lib/rolePresets.js";
@@ -33,11 +35,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   ai: typeof ai;
   aiHelpers: typeof aiHelpers;
   aiProviders: typeof aiProviders;
   auth: typeof auth;
   http: typeof http;
+  "lib/admin": typeof lib_admin;
   "lib/authHelpers": typeof lib_authHelpers;
   "lib/cascadeDelete": typeof lib_cascadeDelete;
   "lib/rolePresets": typeof lib_rolePresets;

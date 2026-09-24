@@ -10,6 +10,7 @@ import {
   LogOut,
   MessagesSquare,
   Play,
+  Shield,
   Sparkles,
   Target,
 } from "lucide-react";
@@ -80,6 +81,15 @@ export function Dashboard() {
           </p>
         </div>
         <div className="flex gap-2 self-start">
+          {user?.is_admin && (
+            <Link
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 text-sm font-semibold text-foreground transition hover:bg-muted/70"
+              href="/admin"
+            >
+              <Shield className="h-4 w-4" />
+              Admin
+            </Link>
+          )}
           <Link
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 text-sm font-semibold text-foreground transition hover:bg-muted/70"
             href="/rooms/join"

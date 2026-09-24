@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { query, internalQuery } from "./_generated/server";
+import { isAdminEmail } from "./lib/admin";
 
 export const usernameTaken = internalQuery({
   args: { username: v.string() },
@@ -36,6 +37,7 @@ export const me = query({
       email: user.email ?? "",
       username: user.username ?? "",
       isActive: user.isActive ?? true,
+      isAdmin: isAdminEmail(user.email),
     };
   },
 });
