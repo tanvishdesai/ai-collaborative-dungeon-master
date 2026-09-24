@@ -7,7 +7,7 @@ figure placeholders, and an "LDRP-ITR / IT Department" footer with page numbers.
 """
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT, WD_LINE_SPACING
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT, WD_LINE_SPACING, WD_TAB_LEADER
 from docx.enum.section import WD_SECTION
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
@@ -130,6 +130,7 @@ def chapter(num, title, sections):
     p.add_run("\t")
     set_run(p.add_run(title), size=16, bold=True)
     p.paragraph_format.tab_stops.add_tab_stop(Inches(0.5))
+    _outline(p, 0)
     for sn, st in sections:
         sp = doc.add_paragraph()
         sp.paragraph_format.space_after = Pt(8)
@@ -143,6 +144,7 @@ def section(num, title):
     p.paragraph_format.space_before = Pt(10)
     p.paragraph_format.space_after = Pt(8)
     set_run(p.add_run(f"{num}. {title}"), size=14, bold=True)
+    _outline(p, 1)
     return p
 
 
@@ -151,6 +153,7 @@ def subsection(num, title):
     p.paragraph_format.space_before = Pt(8)
     p.paragraph_format.space_after = Pt(4)
     set_run(p.add_run(f"{num}. {title}"), size=12.5, bold=True)
+    _outline(p, 2)
     return p
 
 
@@ -206,6 +209,8 @@ def table(headers, rows, caption, widths=None, caption_num=None):
     cap.paragraph_format.space_before = Pt(4)
     cap.paragraph_format.space_after = Pt(12)
     set_run(cap.add_run(caption), size=11, bold=True)
+    _tbl_n[0] += 1
+    _bookmark(cap, f"tblbm{_tbl_n[0]}")
     return t
 
 
@@ -226,6 +231,8 @@ def figure(img_filename, caption, width=6.0):
     cap.paragraph_format.space_before = Pt(2)
     cap.paragraph_format.space_after = Pt(12)
     set_run(cap.add_run(caption), size=11, bold=True)
+    _fig_n[0] += 1
+    _bookmark(cap, f"figbm{_fig_n[0]}")
 
 
 # system rows shared by every Convex table
@@ -233,6 +240,230 @@ SYS = [
     ("_id", "ID (auto)", "PRIMARY KEY, Auto-generated", "Unique document identifier."),
     ("_creationTime", "Number (auto)", "Auto-generated", "Unix timestamp of record creation."),
 ]
+
+# ======================================================================
+# FRONT MATTER  (title, certificate, acknowledgement, abstract, TOC, LoF, LoT)
+# ======================================================================
+CENTER = WD_ALIGN_PARAGRAPH.CENTER
+_fig_n = [0]
+_tbl_n = [0]
+_bm_seq = [0]
+
+FIG_ENTRIES = [
+    ("Figure 4.1", "Entity-Relationship Diagram"),
+    ("Figure 4.2", "Class Diagram"),
+    ("Figure 4.3", "Use Case Diagram"),
+    ("Figure 4.4", "Sequence Diagram"),
+    ("Figure 4.5", "Activity Diagram"),
+    ("Figure 4.6.1", "Context-Level-0 Data Flow Diagram"),
+    ("Figure 4.6.2", "Context-Level-1 Data Flow Diagram"),
+    ("Figure 6.1", "Dashboard (creating a session)"),
+    ("Figure 6.2", "Live panel interview session"),
+    ("Figure 6.3", "Rubric-scored feedback report"),
+]
+TBL_ENTRIES = [
+    ("Table 1", "sessions table schema"),
+    ("Table 2", "participants table schema"),
+    ("Table 3", "profiles table schema"),
+    ("Table 4", "personas table schema"),
+    ("Table 5", "personaMemories table schema"),
+    ("Table 6", "sessionState table schema"),
+    ("Table 7", "transcript table schema"),
+    ("Table 8", "responses table schema"),
+    ("Table 9", "feedbackReports table schema"),
+]
+
+
+def _outline(p, lvl):
+    pPr = p._p.get_or_add_pPr()
+    o = OxmlElement("w:outlineLvl"); o.set(qn("w:val"), str(lvl))
+    pPr.append(o)
+
+
+def _bookmark(paragraph, name):
+    _bm_seq[0] += 1
+    bid = str(_bm_seq[0])
+    start = OxmlElement("w:bookmarkStart"); start.set(qn("w:id"), bid); start.set(qn("w:name"), name)
+    end = OxmlElement("w:bookmarkEnd"); end.set(qn("w:id"), bid)
+    paragraph._p.insert(0, start)
+    paragraph._p.append(end)
+
+
+def _field_run(paragraph, instr, placeholder="", size=12):
+    run = paragraph.add_run()
+    b = OxmlElement("w:fldChar"); b.set(qn("w:fldCharType"), "begin")
+    i = OxmlElement("w:instrText"); i.set(qn("xml:space"), "preserve"); i.text = instr
+    s = OxmlElement("w:fldChar"); s.set(qn("w:fldCharType"), "separate")
+    t = OxmlElement("w:t"); t.set(qn("xml:space"), "preserve"); t.text = placeholder
+    e = OxmlElement("w:fldChar"); e.set(qn("w:fldCharType"), "end")
+    for el in (b, i, s, t, e):
+        run._r.append(el)
+    set_run(run, size=size)
+    return run
+
+
+def _pgnum(section, fmt=None, start=None):
+    sectPr = section._sectPr
+    pg = sectPr.find(qn("w:pgNumType"))
+    if pg is None:
+        pg = OxmlElement("w:pgNumType"); sectPr.append(pg)
+    if fmt:
+        pg.set(qn("w:fmt"), fmt)
+    if start is not None:
+        pg.set(qn("w:start"), str(start))
+
+
+def fc(text, size=12, bold=True, before=0, after=6, italic=False):
+    p = doc.add_paragraph(); p.alignment = CENTER
+    p.paragraph_format.space_before = Pt(before)
+    p.paragraph_format.space_after = Pt(after)
+    set_run(p.add_run(text), size=size, bold=bold, italic=italic)
+    return p
+
+
+def gap(n=1):
+    for _ in range(n):
+        doc.add_paragraph()
+
+
+def dot_row(left, bookmark):
+    p = doc.add_paragraph()
+    p.paragraph_format.space_after = Pt(6)
+    p.paragraph_format.tab_stops.add_tab_stop(
+        CONTENT_WIDTH, WD_TAB_ALIGNMENT.RIGHT, leader=WD_TAB_LEADER.DOTS)
+    set_run(p.add_run(left), size=12)
+    p.add_run("\t")
+    _field_run(p, f" PAGEREF {bookmark} \\h ", "1")
+
+
+# front-matter section: clean title page, lower-roman page numbers
+sec.different_first_page_header_footer = True
+_pgnum(sec, fmt="lowerRoman", start=1)
+
+# ---- Title page ----
+gap(2)
+fc("ABHYAAS", size=28, after=4)
+fc("An AI-Powered Placement Interview and Group Discussion Practice Simulator",
+   size=15, after=18)
+fc("A PROJECT REPORT", size=13, after=4)
+fc("Submitted by", size=12, bold=False, after=4)
+fc("TANVISH DESAI  (Enrollment No. ____________)", size=13, after=14)
+fc("in partial fulfillment for the award of the degree of", size=12, bold=False, after=4)
+fc("BACHELOR OF ENGINEERING", size=14, after=4)
+fc("in", size=12, bold=False, after=4)
+fc("Information Technology", size=13, after=18)
+fc("[ Institute logo ]", size=11, bold=False, italic=True, after=18)
+fc("LDRP Institute of Technology and Research, Gandhinagar", size=13, after=2)
+fc("Kadi Sarva Vishwavidyalaya", size=13, after=16)
+fc("[Month] 2026", size=12, bold=False)
+doc.add_page_break()
+
+# ---- Certificate ----
+fc("LDRP Institute of Technology and Research, Gandhinagar", size=13, after=2)
+fc("CE-IT Department", size=13, after=18)
+fc("CERTIFICATE", size=16, after=16)
+cp = doc.add_paragraph(); cp.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+cp.paragraph_format.line_spacing = 1.5
+set_run(cp.add_run("This is to certify that the Project Work entitled "), size=12)
+set_run(cp.add_run('"Abhyaas: An AI-Powered Placement Interview and Group Discussion '
+                   'Practice Simulator" '), size=12, bold=True)
+set_run(cp.add_run(
+    "has been carried out by Tanvish Desai (Enrollment No. ____________) under my guidance in "
+    "fulfilment of the degree of Bachelor of Engineering in Information Technology, Semester-7 "
+    "of Kadi Sarva Vishwavidyalaya during the academic year 2026-2027."), size=12)
+gap(4)
+for a, b in [("____________________", "____________________"),
+             ("Name of Guide", "Name of HOD"),
+             ("Internal Guide", "Head of the Department")]:
+    r = doc.add_paragraph()
+    r.paragraph_format.space_after = Pt(2)
+    r.paragraph_format.tab_stops.add_tab_stop(CONTENT_WIDTH, WD_TAB_ALIGNMENT.RIGHT)
+    set_run(r.add_run(a), size=12)
+    r.add_run("\t")
+    set_run(r.add_run(b), size=12)
+doc.add_page_break()
+
+# ---- Acknowledgement ----
+fc("ACKNOWLEDGEMENT", size=16, after=14)
+for para in [
+    "I would like to thank everyone who helped me see this project through.",
+    "My deepest thanks go to my internal guide, [Guide Name], whose steady guidance, honest "
+    "feedback and encouragement shaped this work from a rough idea into a finished system. I am "
+    "equally grateful to [HOD Name], Head of the Information Technology Department, and to the "
+    "faculty of LDRP Institute of Technology and Research for the knowledge and the environment "
+    "that made the project possible.",
+    "I am also thankful to the panel members whose review after the first presentation pushed me "
+    "to step back and rebuild the project around a real problem. That feedback changed the "
+    "direction of the work for the better.",
+    "Finally, I thank my family and friends for their patience and support, and my classmates who "
+    "tried the tool and gave me the candid reactions that helped me improve it.",
+]:
+    body(para)
+gap(1)
+nm = doc.add_paragraph(); nm.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+nm.paragraph_format.space_after = Pt(0)
+set_run(nm.add_run("Tanvish Desai"), size=12, bold=True)
+nm2 = doc.add_paragraph(); nm2.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+set_run(nm2.add_run("Enrollment No. ____________"), size=12)
+doc.add_page_break()
+
+# ---- Abstract ----
+fc("ABSTRACT", size=16, after=14)
+for para in [
+    "Campus placements often turn on two rounds that students find almost impossible to rehearse "
+    "on their own: the panel interview and the group discussion. Both need several people and a "
+    "kind of pressure that adapts as you speak, and a placement cell cannot give every student "
+    "repeated mock rounds with faculty playing the interviewers. This project, Abhyaas, is a "
+    "real-time web application that stands in for that panel, or for the moderator of a group "
+    "discussion, so a student can practise on demand and as often as they like.",
+    "Abhyaas is built as a hybrid system. A deterministic rules engine owns everything that "
+    "decides the shape of a session: whose turn it is, which stage it has reached, how far the "
+    "difficulty has climbed and when to score an answer. A large language model, Google's Gemini, "
+    "is kept strictly to writing text, the questions, the follow-ups and the feedback, and is "
+    "never allowed to change the session's state. This split keeps the model from drifting and "
+    "makes each session consistent and measurable. The interviewer personas remember a "
+    "candidate's earlier answers and press on them, and every session ends with a rubric-scored "
+    "report that grades each competency, explains the score, and reports objective numbers the "
+    "engine tracked directly. The system is built on Next.js and Convex, with live multiplayer "
+    "delivered through reactive queries rather than a separate socket layer.",
+]:
+    body(para)
+kw = doc.add_paragraph()
+kw.paragraph_format.space_before = Pt(6)
+set_run(kw.add_run("Keywords: "), size=12, bold=True)
+set_run(kw.add_run("placement preparation, mock interview, group discussion, large language "
+                   "models, multi-agent simulation, deterministic engine, real-time web "
+                   "application."), size=12)
+doc.add_page_break()
+
+# ---- Table of Contents ----
+fc("TABLE OF CONTENTS", size=16, after=12)
+_toc_p = doc.add_paragraph()
+_field_run(_toc_p, ' TOC \\o "1-3" \\h \\z \\u ',
+           "Select this text and press F9 (or right-click > Update Field) to build the contents.")
+doc.add_page_break()
+
+# ---- List of Figures ----
+fc("LIST OF FIGURES", size=16, after=12)
+for _i, (_lab, _title) in enumerate(FIG_ENTRIES, 1):
+    dot_row(f"{_lab}    {_title}", f"figbm{_i}")
+doc.add_page_break()
+
+# ---- List of Tables ----
+fc("LIST OF TABLES", size=16, after=12)
+for _i, (_lab, _title) in enumerate(TBL_ENTRIES, 1):
+    dot_row(f"{_lab}    {_title}", f"tblbm{_i}")
+
+# ---- begin main body (new section, arabic page numbers restarting at 1) ----
+body_sec = doc.add_section(WD_SECTION.NEW_PAGE)
+body_sec.different_first_page_header_footer = False  # header/footer on every body page
+body_sec.page_height = Inches(11.69)
+body_sec.page_width = Inches(8.27)
+body_sec.top_margin = Inches(1.0)
+body_sec.bottom_margin = Inches(1.0)
+body_sec.left_margin = Inches(1.25)
+body_sec.right_margin = Inches(1.0)
+_pgnum(body_sec, fmt="decimal", start=1)
 
 # ======================================================================
 # CHAPTER 1 — INTRODUCTION
@@ -325,30 +556,30 @@ body("The design of Abhyaas is grounded in existing research across simulation-b
 subsection("1.3.1", "Simulation-Based & Deliberate Practice")
 body("Skills improve through deliberate practice: doing the thing over and over, in a safe "
      "setting, with feedback each time. That idea is well established in the training literature, "
-     "and simulation-based teaching (for example the StatPearls entry on deliberate practice in "
-     "simulation) has shown it improves communication and confidence. There is also early evidence "
-     "that an AI can play the practice partner. A small randomised trial found AI-driven role-play "
-     "training held up about as well as role-play with a person, and left participants more "
-     "confident. Abhyaas leans directly on this. It gives students a low-stakes place to run the "
+     "and simulation-based teaching has been shown to improve communication and confidence [6]. "
+     "There is also early evidence that an AI can play the practice partner: a small randomised "
+     "trial found AI-driven role-play training held up about as well as role-play with a person, "
+     "and left participants more confident [7]. Abhyaas leans directly on this. It gives students "
+     "a low-stakes place to run the "
      "exact rounds that decide placements, again and again, with a report each time.")
 
 subsection("1.3.2", "Language-Model Agents with Memory")
-body("For the interviewers to feel real, they have to remember. Park and colleagues (Generative "
-     "Agents, 2023) showed how a memory stream with retrieval lets language-model agents stay "
-     "consistent over time, and the CoALA framework (2023) gives a clean vocabulary for talking "
+body("For the interviewers to feel real, they have to remember. Park and colleagues [1] showed "
+     "how a memory stream with retrieval lets language-model agents stay consistent over time, "
+     "and the CoALA framework [2] gives a clean vocabulary for talking "
      "about it, separating episodic from semantic memory. Abhyaas uses a modest version of the "
      "idea. Each persona keeps its own record of the questions it asked a candidate and the "
      "answers it got, and that record is pulled back in when the next question is written, so the "
      "panel probes earlier answers instead of firing off unrelated ones.")
 
 subsection("1.3.3", "Hybrid Neuro-Symbolic Systems")
-body("The split between the engine and the model is not arbitrary. STORY2GAME (2025) makes the "
+body("The split between the engine and the model is not arbitrary. STORY2GAME [3] makes the "
      "case for it directly: let the language model write the narrative, but let a symbolic engine "
      "own the state transitions, because a model left to track state on its own tends to "
      "hallucinate the world into contradiction. Abhyaas draws the same line. The model writes the "
      "questions and the feedback; the engine decides whose turn it is, what stage the session is "
-     "in and how the score adds up. Work on evaluating role-play agents, such as CharacterEval "
-     "(2024) and CoSER (2025), also shaped the competency dimensions in the report. None of this "
+     "in and how the score adds up. Work on evaluating role-play agents, such as CharacterEval [4] "
+     "and CoSER [5], also shaped the competency dimensions in the report. None of this "
      "is new machine learning. The contribution is in the wiring: state-grounding, per-user "
      "memory, live multiplayer and persistence, put together for a training problem that actually "
      "gets assessed.")
@@ -487,9 +718,10 @@ body("Campus placements carry a lot of weight, and the two rounds that carry the
      "in the room and a kind of pressure that adapts as you speak. The training literature is "
      "fairly settled on how skills like these improve: through deliberate practice, structured "
      "repetition with feedback in a safe setting, which simulation-based training puts to work for "
-     "communication-heavy skills. More recently, a pilot randomised trial found AI-driven "
+     "communication-heavy skills [6]. More recently, a pilot randomised trial found AI-driven "
      "role-play was about as effective as role-play with a person and left learners more "
-     "confident, which is encouraging for the idea of an AI standing in as a practice partner.")
+     "confident [7], which is encouraging for the idea of an AI standing in as a practice "
+     "partner.")
 
 subsection("2.2.2", "Existing Solutions & Market Analysis")
 body("Several tools already work in this space, but each stops short. Yoodli coaches an individual "
@@ -981,21 +1213,22 @@ for r in [
     ref(r)
 
 subsection("7.1.2", "Academic References")
+body("The literature-review sections (1.3 and 2.2) cite these sources by their bracketed number.")
 for r in [
-    "Park, J. S., O'Brien, J., Cai, C. J., et al. (2023). Generative Agents: Interactive "
+    "[1] Park, J. S., O'Brien, J., Cai, C. J., et al. (2023). Generative Agents: Interactive "
     "Simulacra of Human Behavior. arXiv:2304.03442. https://arxiv.org/abs/2304.03442",
-    "Sumers, T. R., Yao, S., Narasimhan, K., Griffiths, T. L. (2023). Cognitive Architectures "
+    "[2] Sumers, T. R., Yao, S., Narasimhan, K., Griffiths, T. L. (2023). Cognitive Architectures "
     "for Language Agents (CoALA). arXiv:2309.02427. https://arxiv.org/abs/2309.02427",
-    "STORY2GAME: Generating (Almost) Everything in an Interactive Fiction Game (2025). "
+    "[3] STORY2GAME: Generating (Almost) Everything in an Interactive Fiction Game (2025). "
     "arXiv:2505.03547. https://arxiv.org/abs/2505.03547",
-    "Tu, Q., Fan, S., Tian, Z., Yan, R. (2024). CharacterEval: A Chinese Benchmark for "
+    "[4] Tu, Q., Fan, S., Tian, Z., Yan, R. (2024). CharacterEval: A Chinese Benchmark for "
     "Role-Playing Conversational Agent Evaluation. arXiv:2401.01275. "
     "https://arxiv.org/abs/2401.01275",
-    "CoSER: Coordinating LLM-Based Persona Simulation of Established Roles (2025). "
+    "[5] CoSER: Coordinating LLM-Based Persona Simulation of Established Roles (2025). "
     "arXiv:2502.09082. https://arxiv.org/abs/2502.09082",
-    "Deliberate Practice in Simulation. StatPearls, NCBI Bookshelf. "
+    "[6] Deliberate Practice in Simulation. StatPearls, NCBI Bookshelf. "
     "https://www.ncbi.nlm.nih.gov/books/NBK554558/",
-    "Simulation-based training and communication/empathy outcomes (randomised controlled "
+    "[7] Simulation-based training and communication/empathy outcomes (randomised controlled "
     "trial). https://pubmed.ncbi.nlm.nih.gov/31794034/",
 ]:
     ref(r)
@@ -1010,6 +1243,10 @@ for r in [
     "Second Nature (AI roleplay training) : https://www.secondnature.ai/",
 ]:
     ref(r)
+
+# tell Word to refresh the TOC and page-reference fields when the document opens
+_uf = OxmlElement("w:updateFields"); _uf.set(qn("w:val"), "true")
+doc.settings.element.append(_uf)
 
 out = r"C:\Users\DELL\Desktop\code_playground\ai-collaborative-dungeon-master\report\Abhyaas_Project_Report.docx"
 try:
